@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script>
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => {
+      document.addEventListener(ev, e => e.preventDefault(), {passive:false});
+    });
+    let _tnxLastTap = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - _tnxLastTap < 350) e.preventDefault();
+      _tnxLastTap = now;
+    }, {passive:false});
+  </script>
+  <title>The Nurse Exchange — The shared nurse pool for pediatric home care</title>
+  <meta name="description" content="A compliance-first workforce platform for Georgia pediatric home care agencies. Credential, share, and match nurses faster." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="landing">
+
+  <nav class="landing-nav">
+    <a href="/" class="brand">
+      <img src="assets/logo.svg" alt="The Nurse Exchange" />
+      <span>The Nurse Exchange</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Platform</a>
+      <a href="#roles">For agencies</a>
+      <a href="#roles">For nurses</a>
+      <a href="#roles">For families</a>
+      <a href="app.html" class="btn btn-secondary btn-sm">Open demo</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <div class="hero-eyebrow"><span class="dot"></span> Built for Georgia GAPP · Multi-state ready</div>
+      <h1>Tap into the <span class="grad">nurse pool</span>. Fill cases faster.</h1>
+      <p class="lead">A compliance-first workforce platform for pediatric home care. Agencies recruit, credential, and share nurses in a trusted network — so open cases get filled in days, not weeks. Families meet and approve every nurse before care begins.</p>
+      <div class="hero-cta">
+        <a href="app.html" class="btn btn-brand btn-lg">Enter the pool demo →</a>
+        <a href="#features" class="btn btn-secondary btn-lg">See how it works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="num">3.8 days</div><div class="label">Avg. time to fill</div></div>
+        <div class="hero-stat"><div class="num">87%</div><div class="label">Case fill rate</div></div>
+        <div class="hero-stat"><div class="num">48+</div><div class="label">GAPP-trained nurses</div></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="ripple"></div>
+      <div class="hero-card-stack">
+        <div class="float-card a">
+          <div class="avatar">TJ</div>
+          <div class="meta">
+            <div class="name">Tiana Johnson, RN</div>
+            <div class="sub">Trach · Vent · 12y · Fulton</div>
+          </div>
+        </div>
+        <div class="float-card b">
+          <div class="avatar" style="background: linear-gradient(135deg, #3EC7B7, #0B1F3A)">MW</div>
+          <div class="meta">
+            <div class="name">Marcus Williams, LPN</div>
+            <div class="sub">Seizure · Autism · Gwinnett</div>
+          </div>
+        </div>
+        <div class="float-card c">
+          <div class="avatar" style="background: linear-gradient(135deg, #0B1F3A, #2D6CDF)">JP</div>
+          <div class="meta">
+            <div class="name">Child A · Fulton</div>
+            <div class="sub">Overnight · Urgent · 3 matches</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <h2>Everything agencies, nurses, and parents need — in one pool</h2>
+    <div class="sub">Designed for the reality of pediatric GAPP operations: credentialing, coverage, compliance, and family trust.</div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" opacity="0.3"/><circle cx="12" cy="12" r="5" opacity="0.6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+        <h3>Shared nurse pool</h3>
+        <p>Agencies mark nurses as private or shareable. Partner agencies can discover, request, and fill coverage from a trusted network.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ico teal">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+        </div>
+        <h3>Credential tracking</h3>
+        <p>GA RN/LPN license, CPR, PALS, TB, GAPP orientation, background checks — all tracked with expiration alerts and upload history.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ico navy">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>
+        </div>
+        <h3>Case marketplace</h3>
+        <p>Post open GAPP cases with required skills, county, shift type, and auth status. Matching engine ranks nurses by fit.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ico">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </div>
+        <h3>Parent meet & greets</h3>
+        <p>Families review shortlisted nurses, book virtual or in-person intros, and approve fit — so care starts on day one with trust.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ico teal">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16v-5a6 6 0 0 0-12 0v5l-2 2h16l-2-2zM10 20a2 2 0 0 0 4 0"/></svg>
+        </div>
+        <h3>Compliance alerts</h3>
+        <p>Every document, every expiration, every gap — surfaced before it becomes a placement blocker. Bulk renewal reminders.</p>
+      </div>
+      <div class="feature-card">
+        <div class="ico navy">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+        </div>
+        <h3>Audit & reporting</h3>
+        <p>Fill rate, time-to-fill, cross-agency placements, credential gaps. Full activity log for compliance and payer audits.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="secured-by" id="security">
+    <div class="secured-by-inner">
+      <div class="lead">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.4"/><circle cx="12" cy="12" r="6" opacity="0.7"/><circle cx="12" cy="12" r="3"/></svg>
+        Secured by Cryptiq · biometric infrastructure for healthcare
+      </div>
+      <h2>Every decision that moves a nurse into a child's home is biometrically signed.</h2>
+      <p class="blurb">The Nurse Exchange is biometric-gated end-to-end. Cryptiq's 2D liveness, 1:N face match, document verification, and LookAway privacy guard are woven into every role — parent, nurse, agency, admin. Identity isn't assumed. It's proven, signed, and audit-chained.</p>
+      <div class="secured-grid">
+        <div class="secured-item">
+          <div class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.4"/><circle cx="12" cy="12" r="6" opacity="0.7"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <h4>2D Liveness</h4>
+          <p>Every login, every approval. Camera-based liveness defeats photo, video, and deepfake attacks.</p>
+        </div>
+        <div class="secured-item">
+          <div class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6z"/><path d="M14 3v6h6"/></svg>
+          </div>
+          <h4>Document + 1:N match</h4>
+          <p>Nurse enrollment scans license, OCRs the data, and face-matches against the document photo before anyone enters the pool.</p>
+        </div>
+        <div class="secured-item">
+          <div class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+          </div>
+          <h4>Signed approvals</h4>
+          <p>Case posts, shortlists, placements, shift acceptances — each produces a hashed biometric signature logged to the audit chain.</p>
+        </div>
+        <div class="secured-item">
+          <div class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
+          </div>
+          <h4>LookAway privacy</h4>
+          <p>Sensitive patient data stays hidden unless the right person is looking. Presence-gated content, auto-blur on focus loss.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="role-picker" id="roles">
+    <h2>Enter the demo</h2>
+    <p class="sub">Try each role — every dashboard is fully interactive with live Georgia-specific seed data.</p>
+
+    <div class="role-grid">
+      <a class="role-card" href="app.html#/dashboard" onclick="localStorage.setItem('tnx.role','agency_admin')">
+        <div class="badge-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/></svg>
+        </div>
+        <h4>Agency Admin</h4>
+        <div class="persona">Peach State Pediatric — manage nurses, post cases, shortlist</div>
+        <div class="enter">Enter →</div>
+      </a>
+      <a class="role-card" href="app.html#/dashboard" onclick="localStorage.setItem('tnx.role','recruiter')">
+        <div class="badge-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>
+        </div>
+        <h4>Recruiter / Scheduler</h4>
+        <div class="persona">Onboard nurses, schedule meets, match to cases</div>
+        <div class="enter">Enter →</div>
+      </a>
+      <a class="role-card" href="app.html#/nurse-home" onclick="localStorage.setItem('tnx.role','nurse')">
+        <div class="badge-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l4 2v3c0 3-2 5-4 6-2-1-4-3-4-6V5l4-2z"/><path d="M6 21c0-3 3-5 6-5s6 2 6 5"/></svg>
+        </div>
+        <h4>Nurse</h4>
+        <div class="persona">Tiana Johnson, RN — view opportunities, accept shifts</div>
+        <div class="enter">Enter →</div>
+      </a>
+      <a class="role-card" href="app.html#/parent-home" onclick="localStorage.setItem('tnx.role','parent')">
+        <div class="badge-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v9a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2v-9z"/></svg>
+        </div>
+        <h4>Parent / Guardian</h4>
+        <div class="persona">Danielle Carter — meet nurses, approve matches</div>
+        <div class="enter">Enter →</div>
+      </a>
+      <a class="role-card" href="app.html#/admin" onclick="localStorage.setItem('tnx.role','super_admin')">
+        <div class="badge-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+        </div>
+        <h4>Super Admin</h4>
+        <div class="persona">Platform oversight, agency verification, audit</div>
+        <div class="enter">Enter →</div>
+      </a>
+    </div>
+  </section>
+
+  <footer class="landing-foot">
+    The Nurse Exchange · A compliance-first workforce platform for pediatric home care · Built for Georgia GAPP, multi-state ready
+  </footer>
+
+</body>
+</html>

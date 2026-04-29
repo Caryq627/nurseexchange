@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <script>
+    // Hard-lock iOS zoom: prevent pinch, double-tap zoom, and snap back if zoom ever happens.
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => {
+      document.addEventListener(ev, e => e.preventDefault(), {passive:false});
+    });
+    let _tnxLastTap = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - _tnxLastTap < 350) e.preventDefault();
+      _tnxLastTap = now;
+    }, {passive:false});
+    // If iOS ever ends up zoomed (visualViewport scale > 1), snap the page back by forcing a scrollTo
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        if (window.visualViewport.scale !== 1) {
+          document.body.style.transform = 'scale(1)';
+          window.scrollTo(0, 0);
+        }
+      });
+    }
+    document.addEventListener('focusout', () => { setTimeout(() => window.scrollTo(0, 0), 40); });
+  </script>
+  <title>The Nurse Exchange — Workspace</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app"><div style="padding:40px; text-align:center; color:var(--text-muted)">Loading The Nurse Exchange…</div></div>
+  <div id="modal-root"></div>
+  <div id="drawer-root"></div>
+  <div id="toast-stack" class="toast-stack"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/cryptiq.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

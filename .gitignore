@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+.env
+.env.local
+*.log
+.cache/
+.netlify/
+.vscode/
+.idea/
+.playwright-mcp/
+*.png
+!assets/**/*.png
+*.jpeg
+!assets/**/*.jpeg
