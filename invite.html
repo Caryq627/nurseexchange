@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
+  <title>The Nurse Exchange · Cryptiq face match</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+  <script>
+    ['gesturestart','gesturechange','gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), {passive:false}));
+  </script>
+  <style>
+    body { background: linear-gradient(180deg, #0B1F3A 0%, #0F2749 100%); min-height: 100vh; color: #E8EEF7; }
+    .invite-shell { max-width: 540px; margin: 0 auto; padding: 24px 20px 40px; }
+    .invite-head { text-align: center; margin-bottom: 24px; }
+    .invite-head .brand-row { display: inline-flex; align-items: center; gap: 10px; color: #3EC7B7; font-weight: 800; letter-spacing: 0.14em; font-size: 12px; margin-bottom: 12px; }
+    .invite-head h1 { color: white; font-size: 24px; line-height: 1.25; margin-bottom: 8px; }
+    .invite-head p { color: rgba(232,238,247,0.65); font-size: 14px; line-height: 1.5; }
+    .invite-card {
+      background: linear-gradient(180deg, #0F2749 0%, #0B1F3A 100%);
+      border: 1px solid rgba(62,199,183,0.2);
+      border-radius: 18px; padding: 20px; margin-bottom: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .invite-doc { width: 100%; max-width: 340px; aspect-ratio: 3/2; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: #000; display: grid; place-items: center; }
+    .invite-doc img { width: 100%; height: 100%; object-fit: cover; }
+    .invite-doc-label { font-size: 11px; color: rgba(232,238,247,0.5); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; text-align: center; margin: 12px 0 10px; }
+    .invite-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; padding-top: 14px; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+    .invite-meta dt { color: rgba(232,238,247,0.5); }
+    .invite-meta dd { color: white; margin: 0; font-weight: 600; }
+    .invite-cta { width: 100%; padding: 16px; border-radius: 14px; border: 0; cursor: pointer; font-weight: 700; font-size: 15px; min-height: 54px;
+      background: linear-gradient(135deg, #2D6CDF, #3EC7B7); color: white;
+      box-shadow: 0 12px 32px rgba(45,108,223,0.4); display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .invite-cta[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .invite-cta-ghost { background: transparent; color: rgba(232,238,247,0.7); box-shadow: none; }
+    .invite-vf { width: 220px; height: 220px; margin: 0 auto 18px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(62,199,183,0.4); background: #000; box-shadow: 0 0 0 6px rgba(62,199,183,0.12), 0 0 40px rgba(62,199,183,0.25); position: relative; }
+    .invite-vf video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .invite-vf .ring { position: absolute; inset: -10px; border-radius: 50%; border: 2px solid #3EC7B7; opacity: 0.35; animation: spin 3s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .step-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(62,199,183,0.12); color: #3EC7B7; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+    .progress { height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
+    .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #2D6CDF, #3EC7B7); transition: width 0.4s; }
+    .match-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
+    .match-img { width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: rgba(255,255,255,0.05); border: 1px solid rgba(62,199,183,0.3); }
+    .match-img img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .match-bars { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .match-bars span { width: 22px; height: 3px; background: #3EC7B7; border-radius: 2px; animation: beam 1s infinite; }
+    .match-bars span:nth-child(2) { animation-delay: 0.1s; }
+    .match-bars span:nth-child(3) { animation-delay: 0.2s; }
+    .match-bars span:nth-child(4) { animation-delay: 0.3s; }
+    .match-bars span:nth-child(5) { animation-delay: 0.4s; }
+    @keyframes beam { 0%,100% { opacity: 0.3; transform: scaleX(0.4); } 50% { opacity: 1; transform: scaleX(1); } }
+    .result-row { text-align: center; padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.04); margin-top: 14px; font-size: 13px; color: rgba(232,238,247,0.7); }
+    .result-row.success { background: rgba(22,163,74,0.12); border: 1px solid rgba(22,163,74,0.3); color: #C7F3D5; }
+    .result-row.success b { color: white; font-size: 18px; }
+    .err-row { background: rgba(225,87,89,0.12); border: 1px solid rgba(225,87,89,0.3); color: #FFB4B6; padding: 14px; border-radius: 12px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="invite-shell" id="invite-root">
+    <div class="invite-head">
+      <div class="brand-row">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="6" opacity="0.6"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>CRYPTIQ · The Nurse Exchange</span>
+      </div>
+      <h1>Verify your face to join the pool</h1>
+      <p>Your agency uploaded your license. Now we just need to match your face to the document photo. Takes about 20 seconds.</p>
+    </div>
+    <div id="content"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script>
+  (function(){
+    const root = document.getElementById('content');
+    const token = (location.hash || '').replace(/^#/, '').trim();
+    const pendingMap = JSON.parse(localStorage.getItem('tnx.pending_invites') || '{}');
+    const invite = pendingMap[token];
+
+    if (!token || !invite) {
+      root.innerHTML = `
+        <div class="invite-card">
+          <div class="err-row">⚠ Invite link is invalid or expired. Ask your agency to send a new one.</div>
+        </div>
+        <a class="invite-cta invite-cta-ghost" href="index.html" style="text-decoration:none">Back to The Nurse Exchange</a>
+      `;
+      return;
+    }
+
+    function renderIntro() {
+      root.innerHTML = `
+        <div class="invite-card">
+          <div class="invite-doc-label">License document on file</div>
+          <div class="invite-doc"><img src="${invite.doc_photo}" alt="license"></div>
+          <dl class="invite-meta">
+            <dt>Name</dt><dd>${invite.first} ${invite.last}</dd>
+            <dt>License</dt><dd>${invite.license_type}</dd>
+            <dt>Issued by</dt><dd>${invite.issued_by}</dd>
+            <dt>Issued</dt><dd>${new Date(invite.issued_at).toLocaleString()}</dd>
+          </dl>
+        </div>
+        <button class="invite-cta" id="start">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.4"/><circle cx="12" cy="12" r="6" opacity="0.7"/><circle cx="12" cy="12" r="3"/></svg>
+          Begin face match
+        </button>
+      `;
+      document.getElementById('start').onclick = startCapture;
+    }
+
+    async function startCapture() {
+      root.innerHTML = `
+        <div class="invite-card" style="text-align:center">
+          <div class="step-pill">Step 1 · Liveness selfie</div>
+          <div class="invite-vf" id="vf"><video id="cam" autoplay playsinline muted></video><div class="ring"></div></div>
+          <div class="progress"><div class="progress-bar" id="bar"></div></div>
+          <p style="font-size:13px; color:rgba(232,238,247,0.6); margin-bottom:14px">Look straight into the camera. Hold still while we capture.</p>
+          <button class="invite-cta" id="capture">Capture selfie</button>
+        </div>
+      `;
+      const video = document.getElementById('cam');
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480, facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        await new Promise(r => video.onloadedmetadata = r);
+      } catch (e) {
+        // Fallback: just use the doc photo as the "selfie" for the demo
+      }
+      let progress = 0;
+      const bar = document.getElementById('bar');
+      const tick = setInterval(() => { progress = Math.min(80, progress + 8); bar.style.width = progress + '%'; }, 200);
+      document.getElementById('capture').onclick = async () => {
+        clearInterval(tick);
+        bar.style.width = '100%';
+        // Snapshot
+        let livePhoto = invite.doc_photo;
+        try {
+          const c = document.createElement('canvas');
+          c.width = 240; c.height = 240;
+          const ctx = c.getContext('2d');
+          ctx.translate(c.width, 0); ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, c.width, c.height);
+          livePhoto = c.toDataURL('image/jpeg', 0.85);
+        } catch {}
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        runMatch(livePhoto);
+      };
+    }
+
+    async function runMatch(livePhoto) {
+      root.innerHTML = `
+        <div class="invite-card">
+          <div class="step-pill" style="margin-bottom:14px">Step 2 · 1:N match against document</div>
+          <div class="match-grid">
+            <div>
+              <div class="invite-doc-label">Document</div>
+              <div class="match-img"><img src="${invite.doc_photo}"></div>
+            </div>
+            <div class="match-bars"><span></span><span></span><span></span><span></span><span></span></div>
+            <div>
+              <div class="invite-doc-label">Live</div>
+              <div class="match-img"><img src="${livePhoto}"></div>
+            </div>
+          </div>
+          <div class="result-row" id="result">Comparing biometric templates…</div>
+        </div>
+        <button class="invite-cta" id="confirm" disabled>Waiting for match…</button>
+      `;
+      await new Promise(r => setTimeout(r, 1600));
+      const score = 0.952 + Math.random() * 0.045;
+      const at = new Date().toISOString();
+      const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token + at + score));
+      const hash = [...new Uint8Array(hashBuf)].map(b => b.toString(16).padStart(2,'0')).join('');
+      document.getElementById('result').classList.add('success');
+      document.getElementById('result').innerHTML = `<b>✓ ${(score*100).toFixed(1)}% match</b><br><span style="font-size:12px">Template enrolled · ${hash.slice(0,16)}…</span>`;
+      const btn = document.getElementById('confirm');
+      btn.disabled = false;
+      btn.textContent = 'Join the pool ✓';
+      btn.onclick = () => completeEnrollment({ livePhoto, score, hash, at });
+    }
+
+    function completeEnrollment({ livePhoto, score, hash, at }) {
+      // Build the nurse record
+      const role = { agency_id: invite.agency_id, name: invite.issued_by, label: 'Cryptiq invite' };
+      const newNurse = {
+        id: 'nr-' + Date.now().toString().slice(-4),
+        first_name: invite.first, last_name: invite.last,
+        email: invite.email, phone: '(xxx) xxx-xxxx',
+        license_type: invite.license_type,
+        license_number: 'GA-' + invite.license_type + '-' + Math.floor(Math.random()*900000+100000),
+        license_state: 'GA',
+        bio: 'Onboarded via Cryptiq doc-match invite link. Face verified against license photo.',
+        counties_served: ['Fulton'], languages: ['English'],
+        years_experience: 1, pediatrics_experience: 1,
+        status: 'active',
+        skills: ['Medication Administration'],
+        rate_per_hour: 38, shift_preferences: ['Day'],
+        employment_type: 'W-2 Employee',
+        primary_agency_id: invite.agency_id,
+        share_status: 'private', shared_with: [],
+        compliance_status: 'incomplete',
+        documents: window.TNX.DOC_TYPES.map(dt => ({ key: dt.key, label: dt.label, status: dt.required ? 'missing' : 'complete', expires: null, required: dt.required })),
+        onboarded_on: at, last_active: at,
+        rating: '5.0', completed_shifts: 0,
+        verified_photo: livePhoto,
+        face_verified: true,
+        face_match_score: score,
+        enrollment_hash: hash
+      };
+      State.addNurse(newNurse);
+      State.logAudit({ actor: invite.first + ' ' + invite.last, actor_role: 'Nurse (invite)', entity: 'Nurse', entity_name: invite.first + ' ' + invite.last, action: `enrolled via doc-invite · face match ${(score*100).toFixed(1)}% · ${hash.slice(0,12)}` });
+      // Remove from pending
+      const m = JSON.parse(localStorage.getItem('tnx.pending_invites') || '{}');
+      delete m[token];
+      localStorage.setItem('tnx.pending_invites', JSON.stringify(m));
+      root.innerHTML = `
+        <div class="invite-card" style="text-align:center; padding:30px 20px">
+          <div style="width:64px; height:64px; border-radius:50%; background:#16A34A; color:white; display:grid; place-items:center; font-size:32px; margin:0 auto 14px">✓</div>
+          <h2 style="color:white; margin-bottom:8px">You're in the pool</h2>
+          <p style="color:rgba(232,238,247,0.7); margin-bottom:20px">${invite.first}, your face is verified against your license. Your agency has been notified.</p>
+          <a class="invite-cta" href="app.html#/nurse-home" onclick="localStorage.setItem('tnx.role','nurse')">Open my nurse dashboard</a>
+        </div>
+      `;
+    }
+
+    renderIntro();
+  })();
+  </script>
+</body>
+</html>

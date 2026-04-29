@@ -336,6 +336,11 @@ document.addEventListener('click', (e) => {
     case 'submit-new-case': submitNewCase(); break;
     case 'invite-nurse': openModal(inviteNurseModal()); break;
     case 'add-nurse': openModal(addNurseModal()); break;
+    case 'add-nurse-mode': _addNurseMode = el.dataset.mode; refreshAddNurseModal(); break;
+    case 'and-pick-photo': pickAddNurseDemoPhoto(); break;
+    case 'submit-add-nurse-demo': submitAddNurseDemo(); break;
+    case 'ani-pick-doc': pickAddNurseInviteDoc(); break;
+    case 'submit-add-nurse-doc-invite': submitAddNurseDocInvite(); break;
     case 'submit-add-nurse': submitAddNurse(); break;
     case 'schedule-meet': openModal(scheduleMeetModal(el.dataset.case, el.dataset.nurse)); break;
     case 'pick-meet-day': pickMeetDay(el.dataset.date); break;
@@ -631,10 +636,145 @@ function inviteNurseModal() {
   `;
 }
 
+// Add-nurse mode: 'choose' | 'demo' | 'doc-invite' | 'full'
+let _addNurseMode = 'choose';
+let _addNurseDemoPhoto = null;
+
 function addNurseModal() {
+  _addNurseMode = 'choose';
+  _addNurseDemoPhoto = null;
+  return renderAddNurseModal();
+}
+
+function renderAddNurseModal() {
+  if (_addNurseMode === 'choose') return addNurseChooseHTML();
+  if (_addNurseMode === 'demo') return addNurseDemoHTML();
+  if (_addNurseMode === 'doc-invite') return addNurseDocInviteHTML();
+  if (_addNurseMode === 'full') return addNurseFullHTML();
+  return addNurseChooseHTML();
+}
+
+function addNurseChooseHTML() {
+  return `
+    <div class="modal" style="max-width:680px">
+      <div class="modal-head"><h3>Add nurse to your pool</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:18px">Pick how you'd like to onboard this nurse.</p>
+        <div style="display:grid; grid-template-columns:1fr; gap:10px">
+          <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px" data-action="add-nurse-mode" data-mode="doc-invite">
+            <div class="badge-ico">${icon('mail',18)}</div>
+            <div style="flex:1; min-width:0">
+              <h4 style="margin-bottom:2px">Doc upload + invite link <span class="cq-verified-chip" style="margin-left:6px">recommended</span></h4>
+              <div class="persona">Upload their license, send them a Cryptiq link. They scan their face on phone, system verifies it matches the doc photo.</div>
+            </div>
+            ${icon('chevronRight',16)}
+          </button>
+          <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px" data-action="add-nurse-mode" data-mode="full">
+            <div class="badge-ico">${icon('shield',18)}</div>
+            <div style="flex:1; min-width:0">
+              <h4 style="margin-bottom:2px">Full Cryptiq enrollment</h4>
+              <div class="persona">3-step in-person flow: scan their license, capture liveness selfie, biometric 1:N match against the doc photo.</div>
+            </div>
+            ${icon('chevronRight',16)}
+          </button>
+          <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px; border-style:dashed" data-action="add-nurse-mode" data-mode="demo">
+            <div class="badge-ico" style="background:linear-gradient(135deg,var(--text-muted),var(--text-subtle))">${icon('users',18)}</div>
+            <div style="flex:1; min-width:0">
+              <h4 style="margin-bottom:2px">Quick demo bypass</h4>
+              <div class="persona">Skip biometric. Just enter a name and upload (or pick) a photo. Useful for showing the rest of the platform without going through enrollment.</div>
+            </div>
+            ${icon('chevronRight',16)}
+          </button>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function addNurseDemoHTML() {
+  return `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-head"><h3>${icon('users',14)} Demo nurse · quick add</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-body">
+        <div style="background:rgba(245,158,11,0.08); border-left:3px solid var(--warn); padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:var(--navy)">
+          <b>Demo mode.</b> Skips biometric. The nurse will appear in the pool but won't show the Cryptiq-verified chip until real enrollment.
+        </div>
+        <div class="form-row">
+          <div class="field"><label>First name</label><input class="input" id="and-first" placeholder="Tiana"></div>
+          <div class="field"><label>Last name</label><input class="input" id="and-last" placeholder="Johnson"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>License type</label><select class="select" id="and-lt"><option>RN</option><option>LPN</option></select></div>
+          <div class="field"><label>Years experience</label><input class="input" id="and-yrs" type="number" value="3"></div>
+        </div>
+        <div class="field">
+          <label>Profile photo</label>
+          <div style="display:flex; gap:14px; align-items:center; padding:12px; background:var(--surface-alt); border:1px dashed var(--border-strong); border-radius:10px">
+            <div id="and-photo-preview" style="width:72px; height:72px; border-radius:14px; background:var(--navy-50); color:var(--text-muted); display:grid; place-items:center; overflow:hidden; flex-shrink:0; ${_addNurseDemoPhoto ? `background-image:url('${_addNurseDemoPhoto}'); background-size:cover; background-position:center` : ''}">
+              ${_addNurseDemoPhoto ? '' : icon('users',24)}
+            </div>
+            <div style="flex:1; min-width:0">
+              <div style="font-size:13px; font-weight:600; color:var(--navy); margin-bottom:2px">${_addNurseDemoPhoto ? 'Photo selected' : 'Upload a face photo'}</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px">JPG, PNG, HEIC, WEBP · 5 MB max</div>
+              <button class="btn btn-secondary btn-sm" data-action="and-pick-photo">${icon('upload',12)} ${_addNurseDemoPhoto ? 'Replace' : 'Choose photo'}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-action="add-nurse-mode" data-mode="choose">← Back</button>
+        <button class="btn btn-brand" data-action="submit-add-nurse-demo">${icon('plus',14)} Add to pool</button>
+      </div>
+    </div>
+  `;
+}
+
+function addNurseDocInviteHTML() {
+  return `
+    <div class="modal" style="max-width:600px">
+      <div class="modal-head"><h3>${icon('mail',14)} Invite by license upload</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px">Upload their RN/LPN license. We'll generate a tokenized Cryptiq link and email it to them — they scan their face on their phone, the system 1:N matches it against the document photo, and the nurse appears verified in your pool.</p>
+        <div class="form-row">
+          <div class="field"><label>First name</label><input class="input" id="ani-first"></div>
+          <div class="field"><label>Last name</label><input class="input" id="ani-last"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Email</label><input class="input" type="email" id="ani-email" placeholder="nurse@example.com"></div>
+          <div class="field"><label>License type</label><select class="select" id="ani-lt"><option>RN</option><option>LPN</option></select></div>
+        </div>
+        <div class="field">
+          <label>License document (front, photo visible)</label>
+          <div style="display:flex; gap:14px; align-items:center; padding:14px; background:var(--surface-alt); border:1px dashed var(--border-strong); border-radius:10px">
+            <div id="ani-doc-preview" style="width:90px; height:60px; border-radius:8px; background:var(--navy-50); color:var(--text-muted); display:grid; place-items:center; overflow:hidden; flex-shrink:0; ${window._aniDocPhoto ? `background-image:url('${window._aniDocPhoto}'); background-size:cover; background-position:center` : ''}">
+              ${window._aniDocPhoto ? '' : icon('file',22)}
+            </div>
+            <div style="flex:1; min-width:0">
+              <div style="font-size:13px; font-weight:600; color:var(--navy); margin-bottom:2px">${window._aniDocPhoto ? 'License uploaded' : 'Upload license image'}</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px">PDF, JPG, PNG, HEIC · 8 MB max</div>
+              <button class="btn btn-secondary btn-sm" data-action="ani-pick-doc">${icon('upload',12)} ${window._aniDocPhoto ? 'Replace' : 'Choose file'}</button>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--ocean-50); border-radius:10px; padding:12px 14px; font-size:12px; color:var(--navy); margin-top:8px">
+          ${icon('shield',12)} <b>Privacy:</b> Document photo is only used to compute a face template for matching — never shared, never displayed to the parent.
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-action="add-nurse-mode" data-mode="choose">← Back</button>
+        <button class="btn btn-brand" data-action="submit-add-nurse-doc-invite">${icon('mail',14)} Send invite link</button>
+      </div>
+    </div>
+  `;
+}
+
+function addNurseFullHTML() {
   return `
     <div class="modal" style="max-width:720px">
-      <div class="modal-head"><h3>Add nurse to your pool</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-head"><h3>${icon('shield',14)} Full Cryptiq enrollment</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
       <div class="modal-body">
         <div class="form-row">
           <div class="field"><label>First name</label><input class="input" id="an-first"></div>
@@ -663,11 +803,184 @@ function addNurseModal() {
         </div>
       </div>
       <div class="modal-foot">
-        <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
-        <button class="btn btn-brand" data-action="submit-add-nurse">${icon('plus',14)} Add nurse</button>
+        <button class="btn btn-ghost" data-action="add-nurse-mode" data-mode="choose">← Back</button>
+        <button class="btn btn-brand" data-action="submit-add-nurse">${icon('shield',14)} Start Cryptiq enrollment</button>
       </div>
     </div>
   `;
+}
+
+function refreshAddNurseModal() {
+  document.getElementById('modal-root').innerHTML = '';
+  openModal(renderAddNurseModal());
+}
+
+function pickAddNurseDemoPhoto() {
+  // Capture form values BEFORE we re-render
+  const first = document.getElementById('and-first')?.value || '';
+  const last = document.getElementById('and-last')?.value || '';
+  const lt = document.getElementById('and-lt')?.value;
+  const yrs = document.getElementById('and-yrs')?.value;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,.heic,.heif,.webp';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    document.body.removeChild(input);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('Photo too large — 5 MB max', 'info'); return; }
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    _addNurseDemoPhoto = dataUrl;
+    refreshAddNurseModal();
+    // Restore form values after re-render
+    setTimeout(() => {
+      if (first) document.getElementById('and-first').value = first;
+      if (last) document.getElementById('and-last').value = last;
+      if (lt) document.getElementById('and-lt').value = lt;
+      if (yrs) document.getElementById('and-yrs').value = yrs;
+    }, 0);
+  });
+  input.click();
+}
+
+function submitAddNurseDemo() {
+  const role = State.currentRole();
+  const first = (document.getElementById('and-first')?.value || '').trim();
+  const last = (document.getElementById('and-last')?.value || '').trim();
+  const lt = document.getElementById('and-lt')?.value || 'RN';
+  const yrs = parseInt(document.getElementById('and-yrs')?.value || '3', 10);
+  if (!first || !last) { toast('First and last name required', 'info'); return; }
+  closeModal();
+  const n = {
+    id: 'nr-' + Date.now().toString().slice(-4),
+    first_name: first, last_name: last,
+    email: `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
+    phone: '(xxx) xxx-xxxx',
+    license_type: lt,
+    license_number: 'GA-DEMO-' + Math.floor(Math.random()*900000+100000),
+    license_state: 'GA',
+    bio: 'Added via demo bypass — biometric enrollment pending.',
+    counties_served: ['Fulton'], languages: ['English'],
+    years_experience: yrs, pediatrics_experience: Math.max(0, yrs - 1),
+    status: 'active',
+    skills: ['Medication Administration'],
+    rate_per_hour: 38, shift_preferences: ['Day'],
+    employment_type: 'W-2 Employee',
+    primary_agency_id: role.agency_id,
+    share_status: 'private', shared_with: [],
+    compliance_status: 'incomplete',
+    documents: window.TNX.DOC_TYPES.map(dt => ({ key: dt.key, label: dt.label, status: dt.required ? 'missing' : 'complete', expires: null, required: dt.required })),
+    onboarded_on: new Date().toISOString(),
+    last_active: new Date().toISOString(),
+    rating: '5.0', completed_shifts: 0,
+    verified_photo: _addNurseDemoPhoto || null,
+    face_verified: false,
+    face_match_score: null,
+    enrollment_hash: null,
+    demo_added: true
+  };
+  State.addNurse(n);
+  State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Nurse', entity_name: fullName(n), action: 'demo-added · biometric pending' });
+  _addNurseDemoPhoto = null;
+  toast(`${fullName(n)} added (demo). Biometric enrollment pending.`, 'success');
+  render();
+}
+
+function pickAddNurseInviteDoc() {
+  // Capture form fields before re-render
+  const first = document.getElementById('ani-first')?.value || '';
+  const last = document.getElementById('ani-last')?.value || '';
+  const email = document.getElementById('ani-email')?.value || '';
+  const lt = document.getElementById('ani-lt')?.value;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,.heic,.heif,.webp,application/pdf';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    document.body.removeChild(input);
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast('File too large — 8 MB max', 'info'); return; }
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    window._aniDocPhoto = dataUrl;
+    window._aniDocFile = { name: file.name, size: file.size, type: file.type };
+    refreshAddNurseModal();
+    setTimeout(() => {
+      if (first) document.getElementById('ani-first').value = first;
+      if (last) document.getElementById('ani-last').value = last;
+      if (email) document.getElementById('ani-email').value = email;
+      if (lt) document.getElementById('ani-lt').value = lt;
+    }, 0);
+  });
+  input.click();
+}
+
+async function submitAddNurseDocInvite() {
+  const role = State.currentRole();
+  const first = (document.getElementById('ani-first')?.value || '').trim();
+  const last = (document.getElementById('ani-last')?.value || '').trim();
+  const email = (document.getElementById('ani-email')?.value || '').trim();
+  const lt = document.getElementById('ani-lt')?.value || 'RN';
+  if (!first || !last || !email) { toast('Name and email required', 'info'); return; }
+  if (!window._aniDocPhoto) { toast('Upload the license document first', 'info'); return; }
+  closeModal();
+  let signature;
+  try {
+    signature = await Cryptiq.sign({
+      action: `Invite ${first} ${last} via license upload`,
+      purpose: 'Tokenized Cryptiq face-match link issued',
+      subject: role.name
+    });
+  } catch { toast('Invite cancelled — signature required', 'info'); return; }
+  // Generate the invite token + link
+  const token = (crypto.getRandomValues(new Uint8Array(16))).reduce((s,b) => s + b.toString(16).padStart(2,'0'), '');
+  const inviteLink = `${location.origin}${location.pathname.replace(/[^/]+$/, '')}invite.html#${token}`;
+  // Stash the doc photo + invite metadata for the demo
+  const pending = JSON.parse(localStorage.getItem('tnx.pending_invites') || '{}');
+  pending[token] = {
+    first, last, email, license_type: lt,
+    doc_photo: window._aniDocPhoto,
+    agency_id: role.agency_id,
+    issued_by: role.name,
+    issued_at: new Date().toISOString(),
+    signature_hash: signature.hash
+  };
+  localStorage.setItem('tnx.pending_invites', JSON.stringify(pending));
+  State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Nurse invite', entity_name: `${first} ${last}`, action: `tokenized link sent to ${email} · doc-only · biometric-signed · ${Cryptiq.shortHash(signature.hash)}` });
+  window._aniDocPhoto = null;
+  window._aniDocFile = null;
+  // Show the invite-link confirmation modal so the demo viewer can copy/open it
+  openModal(`
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head"><h3>${icon('check',14)} Invite link issued</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-body">
+        <div style="background:rgba(22,163,74,0.08); border-left:3px solid var(--ok); padding:12px 14px; border-radius:8px; margin-bottom:14px; font-size:13px; color:var(--navy)">
+          Email queued to <b>${email}</b>. They'll click the link, scan their face, and the system will 1:N match it to the document photo.
+        </div>
+        <div class="field">
+          <label>Demo link (for testing)</label>
+          <div style="display:flex; gap:6px">
+            <input class="input" value="${inviteLink}" readonly id="invite-link-out" style="font-family:ui-monospace,monospace; font-size:11px">
+            <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('invite-link-out').value); TNXComponents.toast('Link copied','success')">${icon('link',12)}</button>
+          </div>
+          <small style="display:block; margin-top:8px; color:var(--text-muted)">Open this link in a private window to act as the nurse and complete the face match.</small>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-action="close-modal">Done</button>
+        <a class="btn btn-brand" href="${inviteLink}" target="_blank" rel="noopener">${icon('arrowRight',14)} Open as nurse</a>
+      </div>
+    </div>
+  `);
 }
 
 async function submitAddNurse() {
