@@ -36,14 +36,47 @@
     await wait(420);
   }
 
-  async function spotlight(selector, ms = 900) {
+  // Persistent spotlight — dims everything except the highlighted region.
+  // Stays put until clearSpotlight() or the next setSpotlight() is called.
+  let _spotEl = null;
+  let _spotUpdate = null;
+  function setSpotlight(selector, opts = {}) {
+    clearSpotlight();
     const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('tnx-sim-spot');
-    await wait(ms);
-    el.classList.remove('tnx-sim-spot');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'tnx-spotlight-backdrop';
+    document.body.appendChild(backdrop);
+    _spotEl = backdrop;
+    const pad = opts.pad ?? 10;
+    const radius = opts.radius ?? 14;
+    backdrop.style.borderRadius = radius + 'px';
+    function update() {
+      const r = el.getBoundingClientRect();
+      backdrop.style.top = Math.max(0, r.top - pad) + 'px';
+      backdrop.style.left = Math.max(0, r.left - pad) + 'px';
+      backdrop.style.width = (r.width + pad*2) + 'px';
+      backdrop.style.height = (r.height + pad*2) + 'px';
+    }
+    update();
+    // Re-position once the smooth-scroll settles
+    setTimeout(update, 320);
+    setTimeout(update, 700);
+    _spotUpdate = update;
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
   }
+  function clearSpotlight() {
+    if (_spotEl) { _spotEl.remove(); _spotEl = null; }
+    if (_spotUpdate) {
+      window.removeEventListener('scroll', _spotUpdate, true);
+      window.removeEventListener('resize', _spotUpdate);
+      _spotUpdate = null;
+    }
+  }
+  // Back-compat wrapper for any existing callers
+  async function spotlight(selector) { setSpotlight(selector); }
 
   // -----------------------------------------------------------
   // Biometric flash overlay — opens real camera, captures, animates match
@@ -158,6 +191,7 @@
     return [
       {
         role: 'super_admin',
+        chapter: 'Example · Biometric sign-in',
         title: 'One biometric gate. Many use cases.',
         narrative: 'Every user — admin, agency, nurse, parent — passes a quick biometric check on sign-in. The same proven-identity stamp is reused everywhere a real-world action needs to be defensible.',
         callouts: [
@@ -176,6 +210,7 @@
       },
       {
         role: 'super_admin',
+        chapter: 'Example · Platform overview',
         title: 'Verified agencies, by the numbers',
         narrative: 'The platform admin sees every agency on the network, their compliance posture, and pending verifications.',
         callouts: [
@@ -186,11 +221,12 @@
         run: async () => {
           await goto('#/admin');
           await wait(500);
-          await spotlight('.stat-grid', 800);
+          setSpotlight('.stat-grid', 800);
         }
       },
       {
         role: 'agency_admin',
+        chapter: 'Example · New case intake',
         title: 'Sandra posts a new pediatric case',
         narrative: 'Agency admin posts a GAPP case for a child needing nursing care. Authorization and Medicaid eligibility are required up front.',
         callouts: [
@@ -239,6 +275,7 @@
       },
       {
         role: 'agency_admin',
+        chapter: 'Example · Matching engine',
         title: 'Match algorithm finds qualified nurses',
         narrative: 'Score weights skills overlap, county proximity, shift preference, agency network, and compliance status. Top matches surface within seconds of posting.',
         callouts: [
@@ -247,11 +284,12 @@
           { kind: 'capability', text: 'Cross-agency partners surface here too — supply scales across the network.' }
         ],
         run: async () => {
-          await spotlight('.match-ring, .nurse-card', 900);
+          setSpotlight('.match-ring, .nurse-card', 900);
         }
       },
       {
         role: 'agency_admin',
+        chapter: 'Example · Shortlist decision',
         title: 'Sandra shortlists the top match',
         narrative: 'Shortlisting is a clinical staffing decision — surfaces the nurse to the family and signals consent for them to review the profile.',
         callouts: [
@@ -272,6 +310,7 @@
       },
       {
         role: 'parent',
+        chapter: 'Example · Parent / guardian portal',
         title: 'Danielle reviews the shortlist',
         narrative: 'The family logs in and sees only nurses the agency has shortlisted for them — verified profiles, real reviews, real face on file.',
         callouts: [
@@ -283,11 +322,12 @@
           setRole('parent');
           await goto('#/parent-home');
           await wait(550);
-          await spotlight('.nurse-card', 900);
+          setSpotlight('.nurse-card', 900);
         }
       },
       {
         role: 'parent',
+        chapter: 'Example · Meet & greet booking',
         title: 'Danielle books a meet & greet',
         narrative: 'The family picks a date and time. The booking is biometrically signed — auditable evidence the parent consented to this nurse.',
         callouts: [
@@ -314,6 +354,7 @@
       },
       {
         role: 'nurse',
+        chapter: 'Example · Nurse dashboard',
         title: 'Tiana sees the new opportunity',
         narrative: 'Nurse opens her app and sees the assignment matched by skills + location, with parent + child context.',
         callouts: [
@@ -325,11 +366,12 @@
           setRole('nurse');
           await goto('#/nurse-home');
           await wait(550);
-          await spotlight('.stat-card, .match-ring', 900);
+          setSpotlight('.stat-card, .match-ring', 900);
         }
       },
       {
         role: 'nurse',
+        chapter: 'Example · Signed acceptance',
         title: 'Tiana accepts the assignment',
         narrative: 'Acceptance is a binding clinical commitment. Biometrically signed, logged to the audit chain, visible to agency + parent.',
         callouts: [
@@ -349,6 +391,7 @@
       },
       {
         role: 'super_admin',
+        chapter: 'Example · Wrong-face block',
         title: 'What if the wrong person tries to sign in?',
         narrative: 'Imagine someone other than Tiana tries to use her credentials. The biometric gate sees the live face doesn\'t match the enrolled template — and blocks the action before any state change.',
         callouts: [
@@ -363,6 +406,7 @@
       },
       {
         role: 'super_admin',
+        chapter: 'Example · Audit chain',
         title: 'Audit chain shows every signed action',
         narrative: 'Each action is hashed and chained. State auditors get the proof; agencies get a defensible record without spreadsheets.',
         callouts: [
@@ -374,11 +418,12 @@
           setRole('super_admin');
           await goto('#/audit');
           await wait(700);
-          await spotlight('.tbl, .stat-grid', 1200);
+          setSpotlight('.tbl, .stat-grid', 1200);
         }
       },
       {
         role: 'super_admin',
+        chapter: 'You\'re done',
         title: 'Walkthrough complete',
         narrative: 'You just watched 4 stakeholders, 6 biometrically-signed actions, all chained in audit. Try the platform yourself with any persona.',
         callouts: [
@@ -478,6 +523,7 @@
           </div>
         </div>
         <div class="tnx-narrator-detail">
+          <div class="tnx-narrator-chapter" id="tnx-narrator-chapter" style="display:none"></div>
           <div class="tnx-narrator-title" id="tnx-narrator-title">Loading…</div>
           <div class="tnx-narrator-desc" id="tnx-narrator-desc"></div>
           <div class="tnx-narrator-callouts" id="tnx-narrator-callouts"></div>
@@ -500,7 +546,7 @@
     };
   }
 
-  function setNarrator({ role, title, desc, callouts, idx, total }) {
+  function setNarrator({ role, chapter, title, desc, callouts, idx, total }) {
     ensureNarrator();
     const p = ROLE[role] || { label: 'Demo viewer', initials: 'DV', color: '#64748B', sub: '' };
     const av = document.getElementById('tnx-narrator-avatar');
@@ -509,6 +555,8 @@
     document.getElementById('tnx-narrator-role').textContent = p.label;
     document.getElementById('tnx-narrator-rolesub').textContent = p.sub || '';
     document.getElementById('tnx-narrator-step').textContent = `Step ${idx} of ${total}`;
+    document.getElementById('tnx-narrator-chapter').textContent = chapter || '';
+    document.getElementById('tnx-narrator-chapter').style.display = chapter ? '' : 'none';
     document.getElementById('tnx-narrator-title').textContent = title;
     document.getElementById('tnx-narrator-desc').textContent = desc || '';
     document.getElementById('tnx-narrator-callouts').innerHTML = (callouts || []).map(c => {
@@ -538,6 +586,7 @@
     aborted = true;
     if (nextResolve) { const r = nextResolve; nextResolve = null; r('abort'); }
     window.TNX_SIMULATING = false;
+    clearSpotlight();
     removeNarrator();
     document.querySelector('.tnx-sim-final')?.remove();
     document.querySelector('.tnx-sim-intro')?.remove();
@@ -571,7 +620,8 @@
     stepIdx = 0;
     while (stepIdx < currentSteps.length && !aborted) {
       const s = currentSteps[stepIdx];
-      setNarrator({ role: s.role, title: s.title, desc: s.narrative, callouts: s.callouts, idx: stepIdx + 1, total: currentSteps.length });
+      clearSpotlight();
+      setNarrator({ role: s.role, chapter: s.chapter, title: s.title, desc: s.narrative, callouts: s.callouts, idx: stepIdx + 1, total: currentSteps.length });
       setRunning(true);
       try { await s.run(); } catch (e) { console.warn('sim step error', e); }
       setRunning(false);
@@ -580,6 +630,7 @@
       if (choice === 'prev' && stepIdx > 0) stepIdx--;
       else stepIdx++;
     }
+    clearSpotlight();
     if (!aborted) {
       const f = document.createElement('div');
       f.className = 'tnx-sim-final';

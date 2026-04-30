@@ -1966,3 +1966,58 @@ table.tbl { width: 100%; border-collapse: collapse; }
   box-shadow: 0 0 0 6px rgba(22,163,74,0.15), 0 0 30px rgba(22,163,74,0.35);
 }
 .tnx-sim-flash-camera.done .tnx-sim-flash-ring { animation: none; opacity: 0.5; }
+
+/* =========================================================
+   PERSISTENT SPOTLIGHT — dims everything except the cutout
+   ========================================================= */
+.tnx-spotlight-backdrop {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+  background: transparent;
+  border-radius: 14px;
+  /* The huge box-shadow creates the dimming everywhere outside the rect */
+  box-shadow:
+    0 0 0 9999px rgba(11,31,58,0.55),
+    0 0 0 3px rgba(62,199,183,0.85),
+    0 0 30px rgba(62,199,183,0.5),
+    inset 0 0 0 2px rgba(255,255,255,0.08);
+  transition: top 0.32s cubic-bezier(0.16,1,0.3,1),
+              left 0.32s cubic-bezier(0.16,1,0.3,1),
+              width 0.32s cubic-bezier(0.16,1,0.3,1),
+              height 0.32s cubic-bezier(0.16,1,0.3,1);
+  animation: tnxSpotPulse 2.4s ease-in-out infinite;
+}
+@keyframes tnxSpotPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 9999px rgba(11,31,58,0.55),
+      0 0 0 3px rgba(62,199,183,0.85),
+      0 0 25px rgba(62,199,183,0.45),
+      inset 0 0 0 2px rgba(255,255,255,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9999px rgba(11,31,58,0.55),
+      0 0 0 5px rgba(62,199,183,1),
+      0 0 45px rgba(62,199,183,0.7),
+      inset 0 0 0 2px rgba(255,255,255,0.12);
+  }
+}
+
+/* =========================================================
+   NARRATOR CHAPTER LABEL (bold white prefix above title)
+   ========================================================= */
+.tnx-narrator-chapter {
+  font-size: 10px;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: inline-block;
+  padding: 3px 9px;
+  background: linear-gradient(135deg, rgba(45,108,223,0.25), rgba(62,199,183,0.25));
+  border: 1px solid rgba(62,199,183,0.4);
+  border-radius: 999px;
+}
