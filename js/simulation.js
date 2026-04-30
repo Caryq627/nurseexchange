@@ -74,6 +74,32 @@
   };
   Sim.flashEnroll = Sim.flashSign;
 
+  // Failed match flash — used to demonstrate the "wrong face" scenario
+  Sim.flashSignFail = function ({ subject, action }) {
+    return new Promise((resolve) => {
+      const f = document.createElement('div');
+      f.className = 'tnx-sim-flash tnx-sim-flash-fail';
+      f.innerHTML = `
+        <div class="tnx-sim-flash-card">
+          <div class="tnx-sim-flash-spinner"></div>
+          <div class="tnx-sim-flash-title">Biometric check</div>
+          <div class="tnx-sim-flash-sub">${escapeHtml(subject || 'Unknown')} · ${escapeHtml(action || '')}</div>
+          <div class="tnx-sim-flash-bar"><div class="tnx-sim-flash-bar-inner"></div></div>
+          <div class="tnx-sim-flash-hint">Simulated · skipping camera</div>
+        </div>
+      `;
+      document.body.appendChild(f);
+      setTimeout(() => {
+        const titleEl = f.querySelector('.tnx-sim-flash-title');
+        const sub = f.querySelector('.tnx-sim-flash-sub');
+        if (titleEl) titleEl.innerHTML = '✗ Match failed · access blocked';
+        if (sub) sub.innerHTML = `Liveness ${(96 + Math.random()*2).toFixed(1)}% · 1:N match <b style="color:#FFB4B6">${(48 + Math.random()*16).toFixed(1)}%</b> (below 85% threshold)`;
+        f.classList.add('failed');
+        setTimeout(() => { f.remove(); resolve(); }, 1100);
+      }, 1100);
+    });
+  };
+
   // -----------------------------------------------------------
   // Step library — each step has on-screen action + callouts
   // -----------------------------------------------------------
@@ -81,19 +107,20 @@
     return [
       {
         role: 'super_admin',
-        title: 'Platform admin signs in',
-        narrative: 'Every user — admin, agency, nurse, parent — passes a biometric gate before any action. Liveness + 1:N face match.',
+        title: 'One biometric gate. Many use cases.',
+        narrative: 'Every user — admin, agency, nurse, parent — passes a quick biometric check on sign-in. The same proven-identity stamp is reused everywhere a real-world action needs to be defensible.',
         callouts: [
-          { kind: 'security',   text: '2D liveness defeats photo / video replay attacks.' },
-          { kind: 'security',   text: '1:N face match against the original enrollment template.' },
-          { kind: 'efficiency', text: 'Every signed action is hashed and chained — no separate audit tooling needed.' }
+          { kind: 'security',   text: 'Authorize treatments — only credentialed, identity-verified clinicians can sign off.' },
+          { kind: 'security',   text: 'Confirm on-site presence — nurse arrival is biometrically logged with timestamp.' },
+          { kind: 'security',   text: 'Prevent substitutions — the face on the badge has to match the face on the license.' },
+          { kind: 'capability', text: 'Reused across every role — no second login, no separate audit tooling.' }
         ],
         run: async () => {
           setRole('super_admin');
-          await wait(450);
-          await Sim.flashSign({ subject: 'Platform Admin', action: 'Sign in' });
+          await wait(400);
+          await Sim.flashSign({ subject: 'Platform Admin', action: 'Sign in to The Nurse Exchange' });
           await goto('#/admin');
-          await wait(450);
+          await wait(300);
         }
       },
       {
@@ -124,7 +151,6 @@
           setRole('agency_admin');
           await goto('#/cases');
           await wait(500);
-          await Sim.flashSign({ subject: 'Sandra Mitchell', action: 'Post GAPP case: Child J' });
           const role = State.currentRole();
           const newCase = {
             id: 'cs-sim-' + Date.now().toString().slice(-4),
@@ -153,7 +179,7 @@
             return { nurse_id: n.id, case_id: newCase.id, score, status: 'suggested' };
           }).sort((a,b) => b.score - a.score);
           State.setMatches(newCase.id, matches);
-          State.logAudit({ actor: 'Sandra Mitchell', actor_role: 'Agency Admin', entity: 'Case', entity_name: 'Child J', action: 'created · biometric-signed [SIM]' });
+          State.logAudit({ actor: 'Sandra Mitchell', actor_role: 'Agency Admin', entity: 'Case', entity_name: 'Child J', action: 'created · signed (re-uses sign-in identity stamp) [SIM]' });
           window._simNewCaseId = newCase.id;
           window._simTopMatchId = matches[0]?.nurse_id;
           location.hash = '#/case/' + newCase.id;
@@ -185,7 +211,6 @@
         run: async () => {
           const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
           if (!caseId || !nurseId) return;
-          await Sim.flashSign({ subject: 'Sandra Mitchell', action: 'Shortlist nurse for Child J' });
           State.updateMatchStatus(caseId, nurseId, 'shortlisted');
           State.updateCase(caseId, { case_status: 'shortlisting' });
           const n = State.getNurse(nurseId);
@@ -222,7 +247,6 @@
         run: async () => {
           const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
           if (!caseId || !nurseId) return;
-          await Sim.flashSign({ subject: 'Danielle Carter', action: 'Book meet & greet' });
           const meet = {
             id: 'mg-sim-' + Date.now().toString().slice(-4),
             case_id: caseId, nurse_id: nurseId, parent_id: 'pa-01',
@@ -265,12 +289,25 @@
         run: async () => {
           const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
           if (!caseId || !nurseId) return;
-          await Sim.flashSign({ subject: 'Tiana Johnson', action: 'Accept Child J assignment' });
           State.updateMatchStatus(caseId, nurseId, 'accepted');
           const n = State.getNurse(nurseId);
           const fname = ((n?.first_name || '') + ' ' + (n?.last_name || '')).trim();
           State.logAudit({ actor: fname, actor_role: 'Nurse', entity: 'Opportunity', entity_name: 'Child J', action: 'accepted · biometric-signed [SIM]' });
           await wait(500);
+        }
+      },
+      {
+        role: 'super_admin',
+        title: 'What if the wrong person tries to sign in?',
+        narrative: 'Imagine someone other than Tiana tries to use her credentials. The biometric gate sees the live face doesn\'t match the enrolled template — and blocks the action before any state change.',
+        callouts: [
+          { kind: 'security',   text: 'No match → no signature → no action. Period.' },
+          { kind: 'security',   text: 'Failed attempts are logged with timestamp + score. Repeat failures escalate to admin.' },
+          { kind: 'capability', text: 'Same gate prevents nurse-substitution at shift start, parent-impersonation at booking, and unauthorized treatment authorizations.' }
+        ],
+        run: async () => {
+          await Sim.flashSignFail({ subject: 'Unknown user', action: 'Attempted sign-in as Tiana Johnson' });
+          State.logAudit({ actor: 'Unknown', actor_role: 'Anonymous', entity: 'Biometric gate', entity_name: 'Failed match', action: 'access blocked · 1:N below threshold [SIM]', signed: false });
         }
       },
       {
@@ -368,6 +405,8 @@
     const n = document.createElement('div');
     n.id = 'tnx-narrator';
     n.className = 'tnx-narrator tnx-narrator-guided';
+    // Initial collapsed state on small screens, expanded on wide
+    if (window.innerWidth < 720) n.classList.add('tnx-narrator-mini');
     n.innerHTML = `
       <div class="tnx-narrator-progress"><div class="tnx-narrator-bar" id="tnx-narrator-bar"></div></div>
       <div class="tnx-narrator-body">
@@ -383,15 +422,18 @@
             </div>
           </div>
           <div class="tnx-narrator-controls">
+            <button class="tnx-narrator-btn" id="tnx-narrator-toggle" title="Show / hide details">▾</button>
             <button class="tnx-narrator-btn tnx-narrator-exit" id="tnx-narrator-exit" title="Exit walkthrough">✕</button>
           </div>
         </div>
-        <div class="tnx-narrator-title" id="tnx-narrator-title">Loading…</div>
-        <div class="tnx-narrator-desc" id="tnx-narrator-desc"></div>
-        <div class="tnx-narrator-callouts" id="tnx-narrator-callouts"></div>
+        <div class="tnx-narrator-detail">
+          <div class="tnx-narrator-title" id="tnx-narrator-title">Loading…</div>
+          <div class="tnx-narrator-desc" id="tnx-narrator-desc"></div>
+          <div class="tnx-narrator-callouts" id="tnx-narrator-callouts"></div>
+        </div>
         <div class="tnx-narrator-foot">
-          <button class="btn btn-ghost btn-sm" id="tnx-narrator-prev">← Previous</button>
-          <span class="tnx-narrator-running" id="tnx-narrator-running" style="display:none">Running step…</span>
+          <button class="btn btn-ghost btn-sm" id="tnx-narrator-prev">← Prev</button>
+          <span class="tnx-narrator-running" id="tnx-narrator-running" style="display:none">Running…</span>
           <button class="btn btn-brand btn-sm" id="tnx-narrator-next" disabled>Next →</button>
         </div>
       </div>
@@ -400,6 +442,11 @@
     document.getElementById('tnx-narrator-exit').onclick = exit;
     document.getElementById('tnx-narrator-prev').onclick = () => { goPrev(); };
     document.getElementById('tnx-narrator-next').onclick = () => { goNext(); };
+    document.getElementById('tnx-narrator-toggle').onclick = () => {
+      n.classList.toggle('tnx-narrator-mini');
+      const tog = document.getElementById('tnx-narrator-toggle');
+      tog.textContent = n.classList.contains('tnx-narrator-mini') ? '▴' : '▾';
+    };
   }
 
   function setNarrator({ role, title, desc, callouts, idx, total }) {

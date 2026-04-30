@@ -1873,3 +1873,61 @@ table.tbl { width: 100%; border-collapse: collapse; }
 @media (max-width: 640px) {
   .app-footer-inner .build-tag { margin-left: 0; }
 }
+
+/* =========================================================
+   COMPACT NARRATOR — less invasive on screen
+   ========================================================= */
+.tnx-narrator-guided {
+  width: min(440px, calc(100vw - 24px));
+  bottom: 14px;
+  border-radius: 14px;
+}
+.tnx-narrator-guided .tnx-narrator-body { padding: 12px 14px 14px; }
+.tnx-narrator-guided .tnx-narrator-head {
+  margin-bottom: 8px; gap: 10px;
+}
+.tnx-narrator-guided .tnx-narrator-avatar { width: 34px; height: 34px; font-size: 12px; border-radius: 10px; }
+.tnx-narrator-guided .tnx-narrator-role { font-size: 12px; }
+.tnx-narrator-guided .tnx-narrator-substep { font-size: 9.5px; }
+.tnx-narrator-guided .tnx-narrator-title {
+  font-size: 14px; line-height: 1.3; margin-bottom: 4px;
+}
+.tnx-narrator-guided .tnx-narrator-desc {
+  font-size: 12px; line-height: 1.45; margin-bottom: 10px;
+}
+.tnx-narrator-guided .tnx-narrator-callouts {
+  gap: 5px; margin-bottom: 12px; max-height: 132px;
+}
+.tnx-narrator-guided .callout {
+  padding: 6px 9px; font-size: 11px; line-height: 1.4;
+}
+.tnx-narrator-guided .callout-tag {
+  font-size: 9px; padding: 1px 6px;
+}
+.tnx-narrator-guided .tnx-narrator-btn {
+  width: 30px; height: 30px; font-size: 12px;
+}
+.tnx-narrator-guided .tnx-narrator-foot .btn-sm { min-height: 32px; padding: 6px 12px; font-size: 12px; }
+
+/* Collapsed state — only persona row + controls + footer */
+.tnx-narrator-mini .tnx-narrator-detail { display: none; }
+.tnx-narrator-mini .tnx-narrator-foot { padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 6px; padding-bottom: 0; }
+
+/* Failed-match overlay variant */
+.tnx-sim-flash-fail .tnx-sim-flash-card { border-color: rgba(225,87,89,0.4); }
+.tnx-sim-flash-fail.failed .tnx-sim-flash-spinner {
+  border-color: #DC2626; background: #DC2626;
+  border-radius: 50%; animation: none; position: relative;
+}
+.tnx-sim-flash-fail.failed .tnx-sim-flash-spinner::after {
+  content: '✗'; position: absolute; inset: 0; display: grid; place-items: center;
+  color: white; font-size: 24px; font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .tnx-narrator-guided { width: calc(100vw - 12px); bottom: 6px; }
+  .tnx-narrator-guided .tnx-narrator-body { padding: 10px 12px 12px; }
+  .tnx-narrator-guided .tnx-narrator-title { font-size: 13px; }
+  .tnx-narrator-guided .tnx-narrator-desc { font-size: 11.5px; }
+  .tnx-narrator-guided .tnx-narrator-callouts { max-height: 110px; }
+}

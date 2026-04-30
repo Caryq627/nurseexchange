@@ -444,6 +444,8 @@ async function captureReferencePhoto({ name }) {
 }
 
 function liveCaptureHTML(refPhoto, displayName) {
+  // Simulated comparison view — no camera. Both panels show the enrollment photo
+  // (we don't have a real selfie capture here in demo mode); animation conveys the match.
   return `
     <div class="cq-backdrop">
       <div class="cq-modal">
@@ -451,25 +453,34 @@ function liveCaptureHTML(refPhoto, displayName) {
           <div class="cq-brand">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="6" opacity="0.6"/><circle cx="12" cy="12" r="3"/></svg>
             <span>CRYPTIQ</span>
-            <small>step 2 of 2 · live face match</small>
+            <small>step 2 of 2 · simulated face match</small>
           </div>
           <button class="cq-close" data-cq="cancel" aria-label="Cancel">✕</button>
         </div>
         <div class="cq-body">
           <div class="cq-title">Prove it's really you, ${displayName}</div>
-          <div class="cq-sub">2D liveness · 1:N match against your enrollment photo. Look at the camera and tap capture.</div>
-          <div class="cq-viewfinder" id="cq-live-vf">
-            <video id="cq-live-video" autoplay playsinline muted></video>
-            <div class="cq-ring"></div>
-            <div class="cq-overlay cq-hidden" id="cq-live-overlay"></div>
+          <div class="cq-sub">In production we capture a live selfie + 2D liveness. For this demo we simulate the comparison — pick "Match" to see a pass, or "Wrong face" to see what a rejection looks like.</div>
+          <div class="cq-match" style="padding:14px 4px 8px">
+            <div class="cq-match-side">
+              <div class="cq-match-label">Enrolled</div>
+              <div class="cq-match-img">${refPhoto ? `<img src="${refPhoto}" style="transform:none">` : 'Enrolled'}</div>
+            </div>
+            <div class="cq-match-bars" id="cq-live-bars">
+              ${Array.from({length: 7}).map((_,i) => `<span class="cq-mb" style="animation-delay:${i*0.08}s"></span>`).join('')}
+            </div>
+            <div class="cq-match-side">
+              <div class="cq-match-label">Live capture</div>
+              <div class="cq-match-img" id="cq-live-img">${refPhoto ? `<img src="${refPhoto}" style="transform:none; opacity:0.85">` : 'Live'}</div>
+            </div>
           </div>
-          <div id="cq-live-result" style="text-align:center; min-height:48px; padding:12px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:13px; color:rgba(232,238,247,0.7); margin-top:6px">
-            Camera ready · tap "Capture & match" to verify
+          <div id="cq-live-result" style="text-align:center; min-height:42px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:12.5px; color:rgba(232,238,247,0.7); margin-top:6px">
+            Tap "Simulate match" to compare templates
           </div>
         </div>
-        <div class="cq-foot">
+        <div class="cq-foot" style="gap:8px">
           <button class="cq-btn-ghost" data-cq="cancel">Cancel</button>
-          <button class="cq-btn-brand" id="cq-live-capture">Capture & match</button>
+          <button class="cq-btn-ghost" id="cq-live-wrong" style="color:#FFB4B6; border:1px solid rgba(225,87,89,0.3)">Try wrong face</button>
+          <button class="cq-btn-brand" id="cq-live-capture" style="flex:1">Simulate match</button>
         </div>
       </div>
     </div>
@@ -480,53 +491,37 @@ async function faceMatchGate({ name, role, refPhoto, firstTime }) {
   refPhoto = refPhoto || localStorage.getItem('tnx.demo.refPhoto');
   return new Promise((resolve, reject) => {
     const el = mount(liveCaptureHTML(refPhoto, (name || 'You').split(' ')[0]));
-    const video = document.getElementById('cq-live-video');
-    let stream;
-    (async () => {
-      try {
-        stream = await getCamera();
-        video.srcObject = stream;
-        await new Promise(r => video.onloadedmetadata = r);
-      } catch {
-        const overlay = document.getElementById('cq-live-overlay');
-        if (overlay) {
-          overlay.innerHTML = `<div class="cq-sim">Camera unavailable — simulated capture</div>`;
-          overlay.classList.remove('cq-hidden');
-        }
-      }
-    })();
-    const done = (payload) => { if (stream) stream.getTracks().forEach(t => t.stop()); unmount(); resolve(payload); };
-    const fail = (err) => { if (stream) stream.getTracks().forEach(t => t.stop()); unmount(); reject(err); };
+    const done = (payload) => { unmount(); resolve(payload); };
+    const fail = (err) => { unmount(); reject(err); };
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-cq="cancel"]')) fail(new Error('cancelled'));
     });
-    document.getElementById('cq-live-capture').onclick = async () => {
+
+    async function runComparison(forceFail) {
       const resultEl = document.getElementById('cq-live-result');
+      const captureBtn = document.getElementById('cq-live-capture');
+      const wrongBtn = document.getElementById('cq-live-wrong');
+      const liveImg = document.getElementById('cq-live-img');
+      captureBtn.disabled = true; wrongBtn.disabled = true;
+      captureBtn.style.opacity = '0.6'; wrongBtn.style.opacity = '0.6';
+      // Visually swap the live panel to a "different face" if forceFail
+      if (forceFail && liveImg) {
+        liveImg.innerHTML = `<div style="width:100%;height:100%;background:linear-gradient(135deg,#612b2b,#8a3232);display:grid;place-items:center;color:#FFB4B6;font-size:11px;font-weight:700;letter-spacing:0.05em">UNKNOWN</div>`;
+      }
       resultEl.innerHTML = '<span style="color:#3EC7B7">Comparing biometric templates…</span>';
-      // Snapshot
-      let livePhoto = refPhoto;
-      try {
-        const c = document.createElement('canvas');
-        c.width = 200; c.height = 200;
-        const ctx = c.getContext('2d');
-        ctx.translate(c.width, 0); ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, c.width, c.height);
-        livePhoto = c.toDataURL('image/jpeg', 0.85);
-      } catch {}
-      // Mock similarity — 95% pass rate
-      await new Promise(r => setTimeout(r, 1100));
-      const score = Math.random() < 0.95 ? (0.93 + Math.random() * 0.06) : (0.62 + Math.random() * 0.18);
+      await new Promise(r => setTimeout(r, 1300));
+      const score = forceFail ? (0.48 + Math.random() * 0.18) : (0.94 + Math.random() * 0.045);
       const passed = score >= 0.85;
+      const at = new Date().toISOString();
+      const hash = await hashSignature({ subject: name, at, kind: 'face-gate', score });
       if (passed) {
-        const at = new Date().toISOString();
-        const hash = await hashSignature({ subject: name, at, kind: 'face-gate', score });
-        resultEl.innerHTML = `<b style="color:#16A34A">✓ Match ${(score*100).toFixed(1)}%</b> · welcome back`;
+        resultEl.innerHTML = `<b style="color:#16A34A">✓ Match ${(score*100).toFixed(1)}%</b> · ${firstTime ? 'enrolled and signed in' : 'welcome back'}`;
         resultEl.style.background = 'rgba(22,163,74,0.12)';
         resultEl.style.border = '1px solid rgba(22,163,74,0.3)';
         const payload = {
           action: `Sign in as ${role?.label || 'User'}`,
-          purpose: firstTime ? `First-time enrollment + face match` : `Welcome back, ${name}`,
-          subject: name, at, hash, photo: livePhoto,
+          purpose: firstTime ? 'First-time enrollment + face match' : `Welcome back, ${name}`,
+          subject: name, at, hash, photo: refPhoto,
           livenessScore: 0.97 + Math.random()*0.02,
           matchScore: score
         };
@@ -534,17 +529,27 @@ async function faceMatchGate({ name, role, refPhoto, firstTime }) {
         if (window.State?.logAudit) {
           window.State.logAudit({ actor: name, actor_role: role?.label || 'User', entity: 'Biometric Signature', entity_name: payload.action, action: `signed · ${shortHash(hash)}`, signed: true });
         }
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 700));
         done(payload);
       } else {
-        // Failed match
-        resultEl.innerHTML = `<b style="color:#DC2626">✗ Match ${(score*100).toFixed(1)}%</b> · below 85% threshold · try again`;
+        resultEl.innerHTML = `<b style="color:#DC2626">✗ Match ${(score*100).toFixed(1)}% — below 85% threshold</b><br><span style="font-size:11px">Access blocked. In production this attempt is logged with timestamp + score and escalated after repeats.</span>`;
         resultEl.style.background = 'rgba(225,87,89,0.1)';
         resultEl.style.border = '1px solid rgba(225,87,89,0.3)';
-        // Reset capture button
-        document.getElementById('cq-live-capture').textContent = 'Retry capture';
+        captureBtn.textContent = 'Retry as enrolled user';
+        captureBtn.disabled = false; wrongBtn.disabled = false;
+        captureBtn.style.opacity = '1'; wrongBtn.style.opacity = '1';
+        if (window.State?.logAudit) {
+          window.State.logAudit({ actor: name || 'Unknown', actor_role: role?.label || 'Anonymous', entity: 'Biometric gate', entity_name: 'Failed match', action: `access blocked · ${(score*100).toFixed(1)}% below threshold`, signed: false });
+        }
+        // Reset live panel back to enrolled photo for the retry option
+        if (liveImg && refPhoto) {
+          liveImg.innerHTML = `<img src="${refPhoto}" style="transform:none; opacity:0.85">`;
+        }
       }
-    };
+    }
+
+    document.getElementById('cq-live-capture').onclick = () => runComparison(false);
+    document.getElementById('cq-live-wrong').onclick = () => runComparison(true);
   });
 }
 
