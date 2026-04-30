@@ -213,6 +213,35 @@ async function sign({ action, purpose, subject }) {
   subject = subject || role?.name || 'Demo User';
   purpose = purpose || 'Accountability signature';
 
+  // Simulation mode — skip camera, auto-complete with synthetic biometric scores
+  if (window.TNX_SIMULATING) {
+    const at = new Date().toISOString();
+    const hash = await hashSignature({ action, subject, at, n: Math.random() });
+    const payload = {
+      action, purpose, subject, at, hash,
+      photo: null,
+      livenessScore: 0.972 + Math.random() * 0.025,
+      matchScore: 0.961 + Math.random() * 0.034,
+      simulated: true
+    };
+    mutate(s => {
+      s.signatures = s.signatures || [];
+      s.signatures.unshift(payload);
+      s.signatures = s.signatures.slice(0, 100);
+    });
+    if (window.State?.logAudit) {
+      window.State.logAudit({
+        actor: subject, actor_role: role?.label || 'User',
+        entity: 'Biometric Signature', entity_name: action,
+        action: `signed [SIM] · ${shortHash(hash)}`, signed: true
+      });
+    }
+    // Render the slick simulated overlay then auto-dismiss
+    if (window.Simulation?.flashSign) await window.Simulation.flashSign({ subject, action });
+    else await new Promise(r => setTimeout(r, 700));
+    return payload;
+  }
+
   const el = mount(viewfinderHTML('Sign with your biometric', `Purpose: ${purpose}`));
   return new Promise((resolve, reject) => {
     el.addEventListener('click', async (e) => {
@@ -301,6 +330,10 @@ function demoNameHTML(roleLabel, existingName) {
 }
 
 async function demoOnboard({ role, force } = {}) {
+  // Simulation mode skips the welcome flow entirely
+  if (window.TNX_SIMULATING) {
+    return sign({ action: `Sign in as ${role?.label || 'User'}`, purpose: 'Simulated walkthrough · biometric bypass', subject: 'Demo Viewer' });
+  }
   const existing = localStorage.getItem('tnx.demo.displayName');
   if (existing && !force) {
     // Already onboarded — skip to biometric
@@ -438,6 +471,14 @@ function enrollHTML(stepIdx, extra = {}) {
 
 async function enroll({ subject }) {
   subject = subject || 'New Nurse';
+  // Simulation bypass — synthesize the enrollment instantly
+  if (window.TNX_SIMULATING) {
+    const at = new Date().toISOString();
+    const hash = await hashSignature({ subject, at, kind: 'enroll-sim' });
+    if (window.Simulation?.flashEnroll) await window.Simulation.flashEnroll({ subject });
+    else await new Promise(r => setTimeout(r, 900));
+    return { docPhoto: null, livePhoto: null, matchScore: 0.964 + Math.random() * 0.03, hash, at, subject, simulated: true };
+  }
   let docPhoto = null, livePhoto = null;
   return new Promise((resolve, reject) => {
     const go = async (stepIdx) => {

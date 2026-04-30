@@ -160,6 +160,9 @@ function renderTopbar() {
       </div>
     </div>
     <div class="topbar-right">
+      <button class="try-demo-cta topbar-try-demo" data-action="start-simulation" title="Watch a guided walkthrough">
+        <span class="pulse"></span>${icon('video',12)} <span class="try-demo-label">Try demo</span>
+      </button>
       <button class="role-switch" data-action="toggle-role-menu">
         ${icon('users',14)} <span class="role-switch-label">Demo role:</span> <b>${role.label}</b> ${icon('chevronDown',12)}
       </button>
@@ -311,6 +314,10 @@ document.addEventListener('click', (e) => {
     case 'toggle-sidebar': document.getElementById('app-shell')?.classList.toggle('sidebar-open'); break;
     case 'close-sidebar': document.getElementById('app-shell')?.classList.remove('sidebar-open'); break;
     case 'toggle-role-menu': openModal(roleMenu(), 'role-sheet'); break;
+    case 'start-simulation':
+      closeModal();
+      window.Simulation?.start({ resetState: true });
+      break;
     case 'switch-role':
       State.setRole(id);
       closeModal();
@@ -1829,6 +1836,12 @@ if (!document.getElementById('modal-root')) {
 
 async function boot() {
   render();
+  // Auto-start simulation if landed via ?sim=1
+  if (new URLSearchParams(location.search).get('sim') === '1') {
+    sessionStorage.setItem('tnx.cq.gatePassed', '1');
+    setTimeout(() => window.Simulation?.start({ resetState: true }), 250);
+    return;
+  }
   if (!sessionStorage.getItem('tnx.cq.gatePassed')) {
     const role = State.currentRole();
     try {
