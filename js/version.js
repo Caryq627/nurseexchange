@@ -1,3 +1,3 @@
 /* Single source of truth for the build label. Bump on every deploy. */
-window.TNX_VERSION = '0.17.1';
-window.TNX_BUILD = '2026-04-30d';
+window.TNX_VERSION = '0.18.0';
+window.TNX_BUILD = '2026-04-30e';
