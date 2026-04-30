@@ -335,13 +335,26 @@ async function demoOnboard({ role, force } = {}) {
     return sign({ action: `Sign in as ${role?.label || 'User'}`, purpose: 'Simulated walkthrough · biometric bypass', subject: 'Demo Viewer' });
   }
   const existing = localStorage.getItem('tnx.demo.displayName');
-  if (existing && !force) {
-    // Already onboarded — skip to biometric
-    return sign({ action: `Sign in as ${role?.label || 'User'}`, purpose: `Welcome back, ${existing}`, subject: existing });
+  const enrolledRef = localStorage.getItem('tnx.demo.refPhoto');
+  if (existing && enrolledRef && !force) {
+    // Already onboarded — quick face match
+    return faceMatchGate({ name: existing, role });
   }
-  // Step 1: name prompt
-  const name = await new Promise((resolve) => {
-    const el = mount(demoNameHTML(role?.label || 'Demo User', existing));
+  // Step 1: name
+  const name = await promptName(role?.label || 'Demo User', existing);
+  if (!name) return null;
+  localStorage.setItem('tnx.demo.displayName', name);
+  // Step 2: enrollment — upload reference photo
+  const refPhoto = await captureReferencePhoto({ name, role });
+  if (!refPhoto) return null;
+  localStorage.setItem('tnx.demo.refPhoto', refPhoto);
+  // Step 3: live capture + match (mocked similarity but real flow)
+  return faceMatchGate({ name, role, refPhoto, firstTime: true });
+}
+
+function promptName(roleLabel, existingName) {
+  return new Promise((resolve) => {
+    const el = mount(demoNameHTML(roleLabel, existingName));
     const input = document.getElementById('cq-name-input');
     setTimeout(() => input?.focus(), 80);
     const done = (val) => { unmount(); resolve(val); };
@@ -353,13 +366,185 @@ async function demoOnboard({ role, force } = {}) {
       if (e.target.closest('#cq-name-submit')) done(input.value.trim() || null);
     });
   });
-  if (name) localStorage.setItem('tnx.demo.displayName', name);
-  // Step 2: biometric sign
-  const displayName = name || existing || role?.name || 'Demo User';
-  return sign({
-    action: `Sign in as ${role?.label || 'User'}`,
-    purpose: `Welcome, ${displayName}`,
-    subject: displayName
+}
+
+function captureReferenceHTML() {
+  return `
+    <div class="cq-backdrop">
+      <div class="cq-modal">
+        <div class="cq-head">
+          <div class="cq-brand">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="6" opacity="0.6"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>CRYPTIQ</span>
+            <small>step 1 of 2 · enrollment photo</small>
+          </div>
+          <button class="cq-close" data-cq="cancel" aria-label="Cancel">✕</button>
+        </div>
+        <div class="cq-body">
+          <div class="cq-title">Upload your enrollment photo</div>
+          <div class="cq-sub">This becomes your reference template. Every future sign-in matches a live selfie against this image.</div>
+          <div id="cq-ref-preview" style="width:200px; height:200px; margin:0 auto 16px; border-radius:50%; background:rgba(255,255,255,0.04); border:2px dashed rgba(62,199,183,0.4); display:grid; place-items:center; overflow:hidden; color:rgba(232,238,247,0.5); font-size:12px">
+            No photo yet
+          </div>
+          <button class="cq-btn-brand" id="cq-ref-pick" style="width:100%; margin-bottom:8px">📷 Choose photo from device</button>
+          <small style="display:block; text-align:center; color:rgba(232,238,247,0.4); font-size:11px">Or skip and use any uploaded photo as a placeholder</small>
+        </div>
+        <div class="cq-foot">
+          <button class="cq-btn-ghost" data-cq="skip-ref">Skip (demo)</button>
+          <button class="cq-btn-brand" id="cq-ref-continue" disabled style="opacity:0.4">Continue → Live capture</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function captureReferencePhoto({ name }) {
+  return new Promise((resolve) => {
+    const el = mount(captureReferenceHTML());
+    let dataUrl = null;
+    const done = (val) => { unmount(); resolve(val); };
+    const pickBtn = document.getElementById('cq-ref-pick');
+    const continueBtn = document.getElementById('cq-ref-continue');
+    pickBtn.onclick = () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,.heic,.heif,.webp';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        document.body.removeChild(input);
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          dataUrl = reader.result;
+          const prev = document.getElementById('cq-ref-preview');
+          if (prev) {
+            prev.style.background = `url('${dataUrl}') center/cover, rgba(255,255,255,0.04)`;
+            prev.style.borderStyle = 'solid';
+            prev.style.borderColor = '#3EC7B7';
+            prev.innerHTML = '';
+          }
+          continueBtn.disabled = false;
+          continueBtn.style.opacity = '1';
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    };
+    continueBtn.onclick = () => done(dataUrl);
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cq="cancel"]')) done(null);
+      if (e.target.closest('[data-cq="skip-ref"]')) {
+        // Use a placeholder/seed photo so the demo still has something to compare
+        done('data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#0F2749"/><circle cx="100" cy="80" r="32" fill="#3EC7B7" opacity="0.5"/><rect x="60" y="120" width="80" height="60" rx="20" fill="#3EC7B7" opacity="0.5"/><text x="100" y="195" fill="#3EC7B7" font-family="sans-serif" font-size="10" text-anchor="middle">DEMO</text></svg>`));
+      }
+    });
+  });
+}
+
+function liveCaptureHTML(refPhoto, displayName) {
+  return `
+    <div class="cq-backdrop">
+      <div class="cq-modal">
+        <div class="cq-head">
+          <div class="cq-brand">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity="0.35"/><circle cx="12" cy="12" r="6" opacity="0.6"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>CRYPTIQ</span>
+            <small>step 2 of 2 · live face match</small>
+          </div>
+          <button class="cq-close" data-cq="cancel" aria-label="Cancel">✕</button>
+        </div>
+        <div class="cq-body">
+          <div class="cq-title">Prove it's really you, ${displayName}</div>
+          <div class="cq-sub">2D liveness · 1:N match against your enrollment photo. Look at the camera and tap capture.</div>
+          <div class="cq-viewfinder" id="cq-live-vf">
+            <video id="cq-live-video" autoplay playsinline muted></video>
+            <div class="cq-ring"></div>
+            <div class="cq-overlay cq-hidden" id="cq-live-overlay"></div>
+          </div>
+          <div id="cq-live-result" style="text-align:center; min-height:48px; padding:12px; border-radius:10px; background:rgba(255,255,255,0.04); font-size:13px; color:rgba(232,238,247,0.7); margin-top:6px">
+            Camera ready · tap "Capture & match" to verify
+          </div>
+        </div>
+        <div class="cq-foot">
+          <button class="cq-btn-ghost" data-cq="cancel">Cancel</button>
+          <button class="cq-btn-brand" id="cq-live-capture">Capture & match</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function faceMatchGate({ name, role, refPhoto, firstTime }) {
+  refPhoto = refPhoto || localStorage.getItem('tnx.demo.refPhoto');
+  return new Promise((resolve, reject) => {
+    const el = mount(liveCaptureHTML(refPhoto, (name || 'You').split(' ')[0]));
+    const video = document.getElementById('cq-live-video');
+    let stream;
+    (async () => {
+      try {
+        stream = await getCamera();
+        video.srcObject = stream;
+        await new Promise(r => video.onloadedmetadata = r);
+      } catch {
+        const overlay = document.getElementById('cq-live-overlay');
+        if (overlay) {
+          overlay.innerHTML = `<div class="cq-sim">Camera unavailable — simulated capture</div>`;
+          overlay.classList.remove('cq-hidden');
+        }
+      }
+    })();
+    const done = (payload) => { if (stream) stream.getTracks().forEach(t => t.stop()); unmount(); resolve(payload); };
+    const fail = (err) => { if (stream) stream.getTracks().forEach(t => t.stop()); unmount(); reject(err); };
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cq="cancel"]')) fail(new Error('cancelled'));
+    });
+    document.getElementById('cq-live-capture').onclick = async () => {
+      const resultEl = document.getElementById('cq-live-result');
+      resultEl.innerHTML = '<span style="color:#3EC7B7">Comparing biometric templates…</span>';
+      // Snapshot
+      let livePhoto = refPhoto;
+      try {
+        const c = document.createElement('canvas');
+        c.width = 200; c.height = 200;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width, 0); ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, c.width, c.height);
+        livePhoto = c.toDataURL('image/jpeg', 0.85);
+      } catch {}
+      // Mock similarity — 95% pass rate
+      await new Promise(r => setTimeout(r, 1100));
+      const score = Math.random() < 0.95 ? (0.93 + Math.random() * 0.06) : (0.62 + Math.random() * 0.18);
+      const passed = score >= 0.85;
+      if (passed) {
+        const at = new Date().toISOString();
+        const hash = await hashSignature({ subject: name, at, kind: 'face-gate', score });
+        resultEl.innerHTML = `<b style="color:#16A34A">✓ Match ${(score*100).toFixed(1)}%</b> · welcome back`;
+        resultEl.style.background = 'rgba(22,163,74,0.12)';
+        resultEl.style.border = '1px solid rgba(22,163,74,0.3)';
+        const payload = {
+          action: `Sign in as ${role?.label || 'User'}`,
+          purpose: firstTime ? `First-time enrollment + face match` : `Welcome back, ${name}`,
+          subject: name, at, hash, photo: livePhoto,
+          livenessScore: 0.97 + Math.random()*0.02,
+          matchScore: score
+        };
+        mutate(s => { s.signatures = s.signatures || []; s.signatures.unshift(payload); s.signatures = s.signatures.slice(0, 100); });
+        if (window.State?.logAudit) {
+          window.State.logAudit({ actor: name, actor_role: role?.label || 'User', entity: 'Biometric Signature', entity_name: payload.action, action: `signed · ${shortHash(hash)}`, signed: true });
+        }
+        await new Promise(r => setTimeout(r, 800));
+        done(payload);
+      } else {
+        // Failed match
+        resultEl.innerHTML = `<b style="color:#DC2626">✗ Match ${(score*100).toFixed(1)}%</b> · below 85% threshold · try again`;
+        resultEl.style.background = 'rgba(225,87,89,0.1)';
+        resultEl.style.border = '1px solid rgba(225,87,89,0.3)';
+        // Reset capture button
+        document.getElementById('cq-live-capture').textContent = 'Retry capture';
+      }
+    };
   });
 }
 

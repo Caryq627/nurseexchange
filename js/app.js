@@ -154,9 +154,10 @@ function renderTopbar() {
     <div class="topbar-left">
       <button class="mobile-menu-btn" data-action="toggle-sidebar" aria-label="Menu">${icon('menu',20)}</button>
       <a href="#/" class="topbar-brand">${icon('pool',22)} <span>The Nurse Exchange</span></a>
-      <div class="topbar-search">
+      <div class="topbar-search" style="position:relative">
         ${icon('search',14)}
-        <input id="global-search" placeholder="Search nurses, cases, skills…" />
+        <input id="global-search" placeholder="Search nurses, cases, skills…" autocomplete="off" />
+        <div id="global-search-results" class="global-search-results"></div>
       </div>
     </div>
     <div class="topbar-right">
@@ -166,8 +167,8 @@ function renderTopbar() {
       <button class="role-switch" data-action="toggle-role-menu">
         ${icon('users',14)} <span class="role-switch-label">Demo role:</span> <b>${role.label}</b> ${icon('chevronDown',12)}
       </button>
-      <button class="icon-btn">${icon('bell',18)}<span class="dot-alert"></span></button>
-      <button class="icon-btn icon-btn-msg">${icon('message',18)}</button>
+      <button class="icon-btn" data-action="open-notifications" title="Notifications">${icon('bell',18)}<span class="dot-alert"></span></button>
+      <button class="icon-btn icon-btn-msg" data-action="open-assistant" title="AI assistant">${icon('message',18)}</button>
       <div class="user-menu">
         <div class="avatar">${initials(window.Cryptiq?.getDisplayName() || role.name)}</div>
         <div class="meta">
@@ -316,8 +317,12 @@ document.addEventListener('click', (e) => {
     case 'toggle-role-menu': openModal(roleMenu(), 'role-sheet'); break;
     case 'start-simulation':
       closeModal();
-      window.Simulation?.start({ resetState: true });
+      window.Simulation?.start({ resetState: false });
       break;
+    case 'open-notifications': openNotifications(); break;
+    case 'open-assistant': openAssistant(); break;
+    case 'assistant-send': sendAssistantMessage(); break;
+    case 'assistant-quick': quickAssistant(el.dataset.q); break;
     case 'switch-role':
       State.setRole(id);
       closeModal();
@@ -404,6 +409,7 @@ document.addEventListener('click', (e) => {
 
 // Filter live-update on pool
 document.addEventListener('input', (e) => {
+  if (e.target.id === 'global-search') { runGlobalSearch(e.target.value); }
   if (e.target.id === 'pool-search') { Views.poolFilters.search = e.target.value; throttleRender(); }
   if (e.target.id === 'f-county')  { Views.poolFilters.county = e.target.value; render(); }
   if (e.target.id === 'f-skill')   { Views.poolFilters.skill = e.target.value; render(); }
@@ -1882,6 +1888,345 @@ function handleComplianceExport() {
   State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Compliance export', entity_name: `${nurses.length} nurses`, action: 'JSON export downloaded' });
   toast('Compliance export downloaded', 'success');
 }
+
+// =========================================================
+// Notifications
+// =========================================================
+function buildNotifications() {
+  const role = State.currentRole();
+  const items = [];
+  // Compliance alerts (agency-scoped)
+  if (['agency_admin','recruiter','super_admin'].includes(role.id)) {
+    State.getNurses()
+      .filter(n => !role.agency_id || n.primary_agency_id === role.agency_id || (n.shared_with || []).includes(role.agency_id))
+      .forEach(n => {
+        (n.documents || []).forEach(d => {
+          if (d.expires) {
+            const days = Math.round((new Date(d.expires) - Date.now()) / 86400000);
+            if (days >= 0 && days <= 30) items.push({
+              type: 'compliance', icon: 'alert', tone: days < 14 ? 'err' : 'warn',
+              title: `${d.label} expires in ${days}d`,
+              sub: `${n.first_name} ${n.last_name}`,
+              hash: `#/nurse/${n.id}`, ts: new Date(d.expires).getTime()
+            });
+          }
+        });
+      });
+  }
+  // Upcoming meets
+  const upcoming = State.getMeets()
+    .filter(m => m.status === 'scheduled' && new Date(m.scheduled_at) > Date.now() - 86400000)
+    .filter(m => {
+      if (role.id === 'parent') return m.parent_id === role.user_id;
+      if (role.id === 'nurse') return m.nurse_id === role.user_id;
+      if (role.agency_id) {
+        const c = State.getCase(m.case_id);
+        return c?.agency_id === role.agency_id;
+      }
+      return true;
+    })
+    .slice(0, 3);
+  upcoming.forEach(m => {
+    const n = State.getNurse(m.nurse_id);
+    const c = State.getCase(m.case_id);
+    items.push({
+      type: 'meet', icon: 'calendar', tone: 'info',
+      title: `${n ? n.first_name + ' ' + n.last_name : 'Nurse'} ↔ ${c?.child_alias || 'Case'}`,
+      sub: fmtDateTime(m.scheduled_at),
+      hash: `#/meets`, ts: new Date(m.scheduled_at).getTime()
+    });
+  });
+  // Recent audit (admin/agency)
+  if (['agency_admin','recruiter','super_admin'].includes(role.id)) {
+    State.getAudit().slice(0, 3).forEach(a => {
+      items.push({
+        type: 'audit', icon: 'shield', tone: 'ok',
+        title: `${a.actor || 'Someone'} · ${a.action.split('·')[0].trim()}`,
+        sub: `${a.entity || ''} ${a.entity_name || ''}`.trim(),
+        hash: '#/audit', ts: Date.now()
+      });
+    });
+  }
+  return items.sort((a,b) => a.ts - b.ts).slice(0, 10);
+}
+
+function openNotifications() {
+  closePopovers();
+  const items = buildNotifications();
+  const html = `
+    <div class="tnx-popover" id="tnx-notifs">
+      <div class="tnx-popover-head">
+        <h3>${icon('bell',14)} Notifications</h3>
+        <small>${items.length} active</small>
+      </div>
+      <div class="tnx-popover-body">
+        ${items.length === 0 ? '<div class="tnx-empty">All clear — no pending alerts.</div>' :
+          items.map(it => `
+            <a class="notif-row tone-${it.tone}" href="${it.hash}" data-popover-link>
+              <div class="notif-ico">${icon(it.icon, 14)}</div>
+              <div class="notif-text">
+                <div class="notif-title">${it.title}</div>
+                <div class="notif-sub">${it.sub}</div>
+              </div>
+            </a>
+          `).join('')}
+      </div>
+    </div>
+  `;
+  showPopover(html);
+}
+
+// =========================================================
+// AI Assistant — keyword/regex command parser
+// =========================================================
+const _assistantHistory = [];
+function openAssistant() {
+  closePopovers();
+  if (_assistantHistory.length === 0) {
+    const role = State.currentRole();
+    const greeting = role.id === 'parent'
+      ? "Hi! I can help you find nurses, view shortlists, or book a meet & greet. Try: \"Show my shortlist\" or \"Book a meet with [nurse name]\"."
+      : role.id === 'nurse'
+      ? "Hi! I can pull up opportunities, your schedule, or your credentials. Try: \"Show my opportunities\" or \"Update my availability\"."
+      : "Hi! I can search nurses or cases, post new cases, schedule meets, and pull reports. Try: \"Show open cases\", \"Find nurses with trach experience\", or \"Schedule a meet with [nurse] for Friday\".";
+    _assistantHistory.push({ from: 'bot', text: greeting });
+  }
+  renderAssistant();
+}
+
+function renderAssistant() {
+  const role = State.currentRole();
+  const role_quicks = role.id === 'parent' ? [
+    'Show my shortlist',
+    'Show upcoming meets',
+    'Message my agency'
+  ] : role.id === 'nurse' ? [
+    'Show my opportunities',
+    'Show my schedule',
+    'Update my availability'
+  ] : [
+    'Show open cases',
+    'Find nurses with trach experience',
+    'Show audit log',
+    'Add a new case'
+  ];
+  const html = `
+    <div class="tnx-popover tnx-assistant" id="tnx-assistant">
+      <div class="tnx-popover-head">
+        <h3>${icon('message',14)} Assistant</h3>
+        <small>Type or pick a command</small>
+      </div>
+      <div class="tnx-popover-body" id="assistant-thread">
+        ${_assistantHistory.map(m => `
+          <div class="assistant-msg ${m.from === 'me' ? 'me' : 'bot'}">${escapeAssistant(m.text)}</div>
+        `).join('')}
+      </div>
+      <div class="assistant-quicks">
+        ${role_quicks.map(q => `<button class="quick-chip" data-action="assistant-quick" data-q="${q}">${q}</button>`).join('')}
+      </div>
+      <div class="assistant-input">
+        <input id="assistant-input" placeholder="Ask anything…" autocomplete="off"/>
+        <button class="btn btn-brand btn-sm" data-action="assistant-send">${icon('send',14)}</button>
+      </div>
+    </div>
+  `;
+  showPopover(html);
+  setTimeout(() => {
+    const inp = document.getElementById('assistant-input');
+    if (inp) inp.focus();
+    const thread = document.getElementById('assistant-thread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+    inp?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); sendAssistantMessage(); }
+    });
+  }, 50);
+}
+
+function escapeAssistant(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])).replace(/\n/g, '<br>');
+}
+
+function quickAssistant(q) {
+  const inp = document.getElementById('assistant-input');
+  if (inp) inp.value = q;
+  sendAssistantMessage();
+}
+
+function sendAssistantMessage() {
+  const inp = document.getElementById('assistant-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  _assistantHistory.push({ from: 'me', text });
+  inp.value = '';
+  const reply = handleAssistant(text);
+  _assistantHistory.push({ from: 'bot', text: reply });
+  renderAssistant();
+}
+
+function handleAssistant(text) {
+  const role = State.currentRole();
+  const t = text.toLowerCase();
+  // Navigation intents
+  if (/(show|open|view|see).*(open|all)?.*case/i.test(t) || /open cases/i.test(t)) {
+    location.hash = '#/cases'; closePopovers();
+    return `Opening cases. There are ${State.getCases().filter(c => ['open','shortlisting'].includes(c.case_status)).length} that need attention.`;
+  }
+  if (/(show|open|view|see|my).*shortlist/i.test(t)) {
+    location.hash = role.id === 'parent' ? '#/parent-home' : '#/cases'; closePopovers();
+    return 'Pulling up your shortlist.';
+  }
+  if (/(show|open|view).*(meet|schedule)/i.test(t)) {
+    location.hash = role.id === 'nurse' ? '#/nurse-schedule' : role.id === 'parent' ? '#/parent-home' : '#/meets';
+    closePopovers();
+    return 'Opening your schedule.';
+  }
+  if (/(show|view|see|my).*(opportunit|opp|jobs?|cases? for me)/i.test(t)) {
+    if (role.id === 'nurse') { location.hash = '#/nurse-opps'; closePopovers(); return 'Opening your opportunities.'; }
+  }
+  if (/(show|view|see|my).*(credential|license|cert)/i.test(t)) {
+    if (role.id === 'nurse') { location.hash = '#/nurse-creds'; closePopovers(); return 'Opening your credentials.'; }
+  }
+  if (/(show|view|see|open).*(audit|log|history)/i.test(t)) {
+    location.hash = '#/audit'; closePopovers(); return 'Opening the audit log.';
+  }
+  if (/(show|view|see|open).*(report|metric)/i.test(t)) {
+    location.hash = '#/reporting'; closePopovers(); return 'Opening reporting.';
+  }
+  if (/message.*agency/i.test(t)) {
+    if (role.id === 'parent') { handleMsgParentAgency(); closePopovers(); return 'Opening your conversation with the agency.'; }
+  }
+  // Search nurses
+  let m;
+  if ((m = t.match(/(?:find|search|show).*(?:nurse|nurses).*(?:with|for|in|named)\s+(.+)$/))) {
+    const term = m[1].replace(/\s+experience$/, '').trim();
+    const matches = State.getNurses().filter(n => {
+      const blob = `${n.first_name} ${n.last_name} ${(n.skills||[]).join(' ')} ${(n.counties_served||[]).join(' ')}`.toLowerCase();
+      return blob.includes(term);
+    }).slice(0, 5);
+    if (matches.length === 0) return `No nurses match "${term}".`;
+    location.hash = '#/pool'; closePopovers();
+    return `Found ${matches.length} nurses for "${term}":\n` + matches.map(n => `• ${n.first_name} ${n.last_name} — ${n.license_type}`).join('\n');
+  }
+  // Update availability
+  if (/update.*availability|edit.*availability|change.*availability/i.test(t)) {
+    if (role.id === 'nurse') {
+      closePopovers();
+      setTimeout(() => openModal(availabilityModal()), 100);
+      return 'Opening your availability editor.';
+    }
+  }
+  // Add case
+  if (/(add|post|create|new).*(case|child|patient)/i.test(t)) {
+    if (['agency_admin','recruiter'].includes(role.id)) {
+      closePopovers();
+      setTimeout(() => openModal(newCaseModal()), 100);
+      return 'Opening the new case form. Fill in the child info and I\'ll match nurses for you.';
+    }
+  }
+  // Schedule a meet
+  if ((m = t.match(/(?:book|schedule).*?meet.*?(?:with\s+)?([a-z][a-z\s]+?)(?:\s+(?:for|on)\s+(.+))?$/))) {
+    const namePart = (m[1] || '').trim();
+    const nurses = State.getNurses();
+    const found = nurses.find(n => `${n.first_name} ${n.last_name}`.toLowerCase().includes(namePart));
+    if (!found) return `Couldn't find a nurse named "${namePart}". Try the full first or last name.`;
+    if (role.id === 'parent') {
+      const parent = State.getParent(role.user_id);
+      const c = State.getCase(parent.case_id);
+      closePopovers();
+      setTimeout(() => openModal(parentBookModal(found.id, c.id)), 100);
+      return `Opening the booking form for ${found.first_name} ${found.last_name}.`;
+    }
+    closePopovers();
+    setTimeout(() => openModal(scheduleMeetModal(null, found.id)), 100);
+    return `Opening the meet & greet form for ${found.first_name} ${found.last_name}.`;
+  }
+  // Switch role
+  if ((m = t.match(/(?:switch|change|act|view).*(?:as|to)\s+(super.?admin|admin|agency|recruiter|nurse|parent|guardian)/))) {
+    const map = { 'admin': 'super_admin', 'super admin': 'super_admin', 'super-admin': 'super_admin', 'super_admin': 'super_admin', 'agency': 'agency_admin', 'recruiter': 'recruiter', 'nurse': 'nurse', 'parent': 'parent', 'guardian': 'parent' };
+    const id = map[m[1]];
+    if (id) {
+      State.setRole(id);
+      const r = window.TNX.ROLES.find(x => x.id === id);
+      location.hash = r.home;
+      closePopovers();
+      return `Switched to ${r.label}.`;
+    }
+  }
+  if (/help|what can|commands/i.test(t)) {
+    return 'I can:\n• Show open cases / shortlist / audit / reporting\n• Find nurses ("nurses with trach experience")\n• Book a meet ("schedule meet with Tiana")\n• Add a case / update availability\n• Switch persona ("act as nurse")';
+  }
+  return `I'm not sure how to help with "${text}" yet. Try "help" to see what I can do.`;
+}
+
+// =========================================================
+// Popover plumbing (used by notifications + assistant)
+// =========================================================
+function closePopovers() {
+  document.querySelectorAll('.tnx-popover').forEach(el => el.remove());
+  document.getElementById('tnx-popover-backdrop')?.remove();
+}
+function showPopover(html) {
+  closePopovers();
+  const back = document.createElement('div');
+  back.id = 'tnx-popover-backdrop';
+  back.className = 'tnx-popover-backdrop';
+  back.onclick = (e) => { if (e.target === back) closePopovers(); };
+  back.innerHTML = html;
+  document.body.appendChild(back);
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-popover-link]')) closePopovers();
+});
+
+// =========================================================
+// Global search
+// =========================================================
+function runGlobalSearch(q) {
+  const out = document.getElementById('global-search-results');
+  if (!out) return;
+  const query = (q || '').trim().toLowerCase();
+  if (!query || query.length < 2) { out.classList.remove('open'); out.innerHTML = ''; return; }
+  const role = State.currentRole();
+  const myAg = role.agency_id;
+  const nurses = State.getNurses().filter(n => n.primary_agency_id === myAg || (n.shared_with || []).includes(myAg)).filter(n => {
+    const blob = `${n.first_name} ${n.last_name} ${n.license_type} ${(n.skills||[]).join(' ')} ${(n.counties_served||[]).join(' ')}`.toLowerCase();
+    return blob.includes(query);
+  }).slice(0, 6);
+  const cases = State.getCases().filter(c => !myAg || c.agency_id === myAg).filter(c => {
+    const blob = `${c.child_alias} ${c.county} ${c.shift_type} ${(c.required_skills||[]).join(' ')}`.toLowerCase();
+    return blob.includes(query);
+  }).slice(0, 5);
+  const agencies = role.id === 'super_admin' ? State.getAgencies().filter(a => a.name.toLowerCase().includes(query)).slice(0, 4) : [];
+  const items = [
+    ...nurses.map(n => ({ kind: 'Nurse', label: `${n.first_name} ${n.last_name}`, sub: `${n.license_type} · ${(n.counties_served||[]).slice(0,2).join(', ')}`, hash: `#/nurse/${n.id}` })),
+    ...cases.map(c => ({ kind: 'Case', label: c.child_alias, sub: `${c.county} · ${c.shift_type} · ${c.requested_hours}hr/wk`, hash: `#/case/${c.id}` })),
+    ...agencies.map(a => ({ kind: 'Agency', label: a.name, sub: a.status, hash: '#/admin-agencies' }))
+  ];
+  if (!items.length) {
+    out.innerHTML = `<div class="search-empty">No matches for "${query}"</div>`;
+    out.classList.add('open');
+    return;
+  }
+  out.innerHTML = items.map(it => `
+    <a class="search-result" href="${it.hash}" data-search-hit>
+      <span class="search-kind">${it.kind}</span>
+      <span class="search-text"><b>${it.label}</b><small>${it.sub}</small></span>
+    </a>
+  `).join('');
+  out.classList.add('open');
+}
+
+document.addEventListener('click', (e) => {
+  const out = document.getElementById('global-search-results');
+  if (!out) return;
+  if (e.target.closest('[data-search-hit]')) {
+    out.classList.remove('open');
+    const inp = document.getElementById('global-search');
+    if (inp) inp.value = '';
+  } else if (!e.target.closest('.topbar-search')) {
+    out.classList.remove('open');
+  }
+});
 
 // Boot
 if (!document.getElementById('modal-root')) {
