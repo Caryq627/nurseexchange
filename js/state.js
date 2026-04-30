@@ -18,6 +18,31 @@ const State = (() => {
 
   function reset() { overlay = {}; localStorage.removeItem(STORAGE_KEY); }
 
+  // Snapshot seed IDs at module load so we can detect demo additions later
+  const SEED_IDS = {
+    NURSES: new Set((window.TNX?.NURSES || []).map(n => n.id)),
+    CASES: new Set((window.TNX?.CASES || []).map(c => c.id)),
+    MEET_AND_GREETS: new Set((window.TNX?.MEET_AND_GREETS || []).map(m => m.id)),
+    AGENCIES: new Set((window.TNX?.AGENCIES || []).map(a => a.id))
+  };
+  function purgeDemoAdditions() {
+    // Remove anything not in the seed snapshot from each collection
+    ['NURSES','CASES','MEET_AND_GREETS','AGENCIES'].forEach(key => {
+      const cur = get(key);
+      const filtered = cur.filter(item => SEED_IDS[key].has(item.id));
+      set(key, filtered);
+    });
+    // Reset audit log to seed (drop any signature/audit additions)
+    set('AUDIT_LOGS', (window.TNX.AUDIT_LOGS || []).slice());
+    // Reset matches to seed
+    set('CASE_MATCHES', { ...(window.TNX.CASE_MATCHES || {}) });
+    // Reset message threads to seed
+    set('MESSAGE_THREADS', (window.TNX.MESSAGE_THREADS || []).slice());
+    // Wipe pending invites + cryptiq signatures + uploaded credential blobs
+    try { localStorage.removeItem('tnx.pending_invites'); } catch {}
+    try { localStorage.removeItem('tnx.cryptiq.v1'); } catch {}
+  }
+
   // Returns a merged copy — deep-clone for safety.
   function get(key) {
     if (overlay[key]) return JSON.parse(JSON.stringify(overlay[key]));
@@ -124,7 +149,7 @@ const State = (() => {
   function getParent(id) { return window.TNX.PARENTS.find(p => p.id === id); }
 
   return {
-    reset, currentRole, setRole,
+    reset, purgeDemoAdditions, currentRole, setRole,
     getNurses, getNurse, updateNurse, addNurse,
     getCases, getCase, addCase, updateCase,
     getMatches, setMatches, updateMatchStatus,

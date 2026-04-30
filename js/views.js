@@ -995,6 +995,157 @@ Views.admin = () => {
   `;
 };
 
+// ============ NURSE SCHEDULE (dedicated view) ============
+Views.nurseSchedule = () => {
+  const role = State.currentRole();
+  const n = State.getNurse(role.user_id);
+  if (!n) return emptyState({ title: 'Profile not found', message: '' });
+  const meets = State.getMeets().filter(m => m.nurse_id === n.id);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(today.getTime() + i * 86400000);
+    const iso = d.toISOString().slice(0, 10);
+    const v = (n.availability || {})[iso] || 'off';
+    days.push({ iso, d, v, num: d.getDate(), label: d.toLocaleDateString('en-US', { weekday: 'short' }), meets: meets.filter(m => m.scheduled_at.slice(0, 10) === iso) });
+  }
+  const upcomingMeets = meets.filter(m => m.status === 'scheduled').sort((a,b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  return `
+    <div class="page-head">
+      <div class="titles"><h1>My schedule</h1><p>14-day availability + upcoming meets</p></div>
+      <div class="actions">
+        <button class="btn btn-brand" data-action="update-availability">${icon('calendar',14)} Edit availability</button>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header">
+        <h3>Next 14 days</h3>
+        <small>Tap "Edit availability" to set day/night/any</small>
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px">
+        ${days.map(x => {
+          const colorMap = { off: 'background:var(--surface-alt); color:var(--text-muted)', day: 'background:var(--ocean-50); color:var(--ocean-600); border-color:var(--ocean)', night: 'background:#1F2D4F; color:#A4D6FF; border-color:#3D5BAB', either: 'background:linear-gradient(135deg,var(--teal-50),var(--ocean-50)); color:var(--navy); border-color:var(--teal)' };
+          const lbl = { off: 'Off', day: 'Day', night: 'Night', either: 'Any' };
+          return `
+            <div style="padding:10px 4px; border:1.5px solid var(--border); border-radius:10px; text-align:center; ${colorMap[x.v]}; min-height:74px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative">
+              <div style="font-size:10px; font-weight:600; opacity:0.7">${x.label}</div>
+              <div style="font-size:16px; font-weight:800">${x.num}</div>
+              <div style="font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase">${lbl[x.v]}</div>
+              ${x.meets.length ? `<div style="position:absolute; top:4px; right:4px; width:7px; height:7px; border-radius:50%; background:var(--err)"></div>` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+    <h2 style="margin:24px 0 12px">Upcoming meet & greets</h2>
+    ${upcomingMeets.length === 0 ? emptyState({ title: 'Nothing scheduled', message: 'You\'ll see meet & greets here once an agency books one with you.', icon: 'calendar' }) :
+      `<div class="stack">${upcomingMeets.map(m => {
+        const c = State.getCase(m.case_id);
+        return `
+          <div class="card" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+            <div style="width:46px;height:46px;border-radius:12px;background:var(--teal-50);color:var(--teal-600);display:grid;place-items:center;flex-shrink:0">${icon(m.mode.includes('Virtual')?'video':'handshake',20)}</div>
+            <div style="flex:1; min-width:160px">
+              <div style="font-weight:700; color:var(--navy)">${c?.child_alias || 'Case'} · ${c?.county || ''}</div>
+              <div style="font-size:12px; color:var(--text-muted)">${fmtDateTime(m.scheduled_at)} · ${m.mode}</div>
+            </div>
+            ${badge('Scheduled','info')}
+            <button class="btn btn-secondary btn-sm" data-action="open-meet" data-id="${m.id}">Details</button>
+          </div>
+        `;
+      }).join('')}</div>`
+    }
+  `;
+};
+
+// ============ NURSE CREDENTIALS (dedicated view) ============
+Views.nurseCreds = () => {
+  const role = State.currentRole();
+  const n = State.getNurse(role.user_id);
+  if (!n) return emptyState({ title: 'Profile not found', message: '' });
+  const total = (n.documents || []).length;
+  const complete = (n.documents || []).filter(d => d.status === 'complete').length;
+  const expiring = (n.documents || []).filter(d => d.status === 'expiring' || (d.expires && (new Date(d.expires) - Date.now()) < 30 * 86400000 && (new Date(d.expires) - Date.now()) > 0)).length;
+  return `
+    <div class="page-head">
+      <div class="titles"><h1>My credentials</h1><p>License, certifications, and required GAPP documents</p></div>
+    </div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${statCard({ label: 'Documents on file', val: `${complete} / ${total}` })}
+      ${statCard({ label: 'Expiring <30 days', val: expiring })}
+      ${statCard({ label: 'Compliance status', val: n.compliance_status === 'complete' ? '100%' : n.compliance_status === 'expiring' ? 'Action needed' : 'Review' })}
+    </div>
+    <div class="card" style="margin-bottom:16px; background:linear-gradient(135deg, var(--ocean-50), var(--teal-50)); border-color:transparent">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+        <div style="width:36px; height:36px; border-radius:10px; background:white; color:var(--ocean); display:grid; place-items:center; flex-shrink:0">${icon('shield',16)}</div>
+        <div style="flex:1; min-width:200px">
+          <div style="font-weight:700; color:var(--navy); font-size:14px">Upload accepted formats</div>
+          <div style="font-size:12px; color:var(--text-muted)">PDF, JPG, PNG, HEIC, WEBP, DOCX, TIFF · 8 MB max · biometric-signed at upload</div>
+        </div>
+      </div>
+    </div>
+    <div class="stack">
+      ${(n.documents || []).map(d => {
+        const hasFile = !!d.file_data;
+        return `
+          <div class="doc-row">
+            <div class="doc-ico" style="${hasFile ? 'background:var(--teal-50); color:var(--teal-600)' : ''}">${icon(hasFile ? 'check' : 'file',16)}</div>
+            <div class="meta" style="flex:1; min-width:0">
+              <div class="name">${d.label}</div>
+              <div class="sub">
+                ${hasFile ? `${d.file_name} · ${(d.file_size/1024).toFixed(0)} KB · ${d.expires ? 'Expires ' + fmtDate(d.expires) : 'No expiration'}` : (d.expires ? 'Expires ' + fmtDate(d.expires) : 'Not uploaded')}
+              </div>
+              ${hasFile ? `<div class="sub" style="font-family:ui-monospace,monospace; font-size:10px; opacity:0.7">sha256:${(d.file_hash||'').slice(0,18)}…</div>` : ''}
+            </div>
+            ${d.status === 'complete' ? badge('Current','ok')
+              : d.status === 'expiring' ? badge('Expiring soon','warn')
+              : d.status === 'expired' ? badge('Expired','err')
+              : badge('Missing','err')}
+            <div style="display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap">
+              ${hasFile ? `<a class="btn btn-ghost btn-sm" href="${d.file_data}" download="${d.file_name}" style="text-decoration:none">${icon('file',12)} View</a>` : ''}
+              <button class="btn btn-secondary btn-sm" data-action="upload-doc" data-id="${d.key}">${icon('upload',12)} ${hasFile ? 'Replace' : 'Upload'}</button>
+              ${hasFile ? `<button class="btn btn-ghost btn-sm" data-action="remove-doc" data-id="${d.key}">${icon('x',12)}</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+};
+
+// ============ NURSE OPPORTUNITIES (dedicated view) ============
+Views.nurseOpps = () => {
+  const role = State.currentRole();
+  const n = State.getNurse(role.user_id);
+  if (!n) return emptyState({ title: 'Profile not found', message: '' });
+  const opps = [];
+  State.getCases().filter(c => ['open','shortlisting'].includes(c.case_status)).forEach(c => {
+    const m = State.getMatches(c.id).find(x => x.nurse_id === n.id);
+    if (m && m.score >= 50) opps.push({ ...m, case: c });
+  });
+  opps.sort((a,b) => b.score - a.score);
+  return `
+    <div class="page-head">
+      <div class="titles"><h1>Opportunities</h1><p>Open cases matched by your skills, county, and shift preference</p></div>
+    </div>
+    ${opps.length === 0 ? emptyState({ title: 'No active matches', message: 'New cases will appear here automatically.', icon: 'briefcase' }) :
+      `<div class="stack">${opps.map(m => `
+        <div class="card" style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+          ${matchRing(m.score)}
+          <div style="flex:1; min-width:200px">
+            <div style="font-weight:700; color:var(--navy); font-size:15px">${m.case.child_alias} · ${m.case.county}</div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px">${m.case.shift_type} · ${m.case.requested_hours}hr/wk · starts ${fmtDate(m.case.start_date)}</div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap">${m.case.required_skills.slice(0,4).map(s => chip(s, {icon:'check'})).join('')}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <button class="btn btn-brand btn-sm" data-action="accept-opp" data-case="${m.case.id}">Accept</button>
+            <button class="btn btn-ghost btn-sm">Decline</button>
+          </div>
+        </div>
+      `).join('')}</div>`
+    }
+  `;
+};
+
 // ============ NURSE HOME ============
 Views.nurseHome = () => {
   const role = State.currentRole();
@@ -1134,7 +1285,7 @@ Views.parentHome = () => {
                   <div class="name">${fullName(n)}</div>
                   <div class="credential">${n.license_type} · ${n.years_experience}y experience</div>
                   <div class="loc">${icon('star',10)} ${n.rating} · ${n.completed_shifts} shifts</div>
-                  ${n.face_verified ? `<span class="cq-verified-chip" style="margin-top:4px">${icon('shield',9)} Cryptiq verified</span>` : ''}
+                  ${n.face_verified ? `<span class="cq-verified-chip" style="margin-top:4px">${icon('shield',9)} Verified</span>` : ''}
                 </div>
               </div>
               <p style="font-size:12px; color:var(--text-muted); line-height:1.5">${n.bio}</p>

@@ -106,7 +106,7 @@ function nurseCard(n, caseCtx) {
           <div class="name">${fullName(n)} ${n.rating >= 4.7 ? icon('star', 14) : ''}</div>
           <div class="credential">${n.license_type} · ${n.years_experience}y exp · $${n.rate_per_hour}/hr</div>
           <div class="loc">${icon('pin', 10)} ${n.counties_served.slice(0,3).join(', ')}</div>
-          ${n.face_verified ? `<span class="cq-verified-chip" style="margin-top:6px">${icon('shield',10)} Cryptiq verified</span>` : ''}
+          ${n.face_verified ? `<span class="cq-verified-chip" style="margin-top:6px">${icon('shield',10)} Verified</span>` : ''}
         </div>
       </div>
       <div class="skills">${skillChips}${extra}</div>

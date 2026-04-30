@@ -1,85 +1,41 @@
 /* ============================================================
-   The Nurse Exchange — Demo Simulation
-   Walks through the full multi-stakeholder workflow:
-   Super Admin → Agency Admin → Parent → Nurse → audit recap
-   Biometric checks are simulated (Cryptiq.sign sees TNX_SIMULATING).
+   The Nurse Exchange — Guided Demo Walkthrough
+   - Intro storyboard
+   - One step at a time, user clicks Next
+   - Per-step callouts: feature / efficiency / security
+   - Biometric checks simulated as a quick flash
    ============================================================ */
 (function () {
   const Sim = {};
   let stepIdx = 0;
-  let paused = false;
   let aborted = false;
-  let stepResolve = null;
-  const ROLE_AVATARS = {
-    super_admin: { label: 'Platform Admin',  initials: 'PA', color: '#7C3AED' },
-    agency_admin:{ label: 'Sandra Mitchell', initials: 'SM', color: '#2D6CDF' },
-    recruiter:   { label: 'Jerome Phillips', initials: 'JP', color: '#0EA5E9' },
-    parent:      { label: 'Danielle Carter', initials: 'DC', color: '#F59E0B' },
-    nurse:       { label: 'Tiana Johnson',   initials: 'TJ', color: '#16A34A' }
+  let currentSteps = [];
+  let nextResolve = null;
+
+  const ROLE = {
+    super_admin:  { label: 'Platform Admin',  initials: 'PA', color: '#7C3AED' },
+    agency_admin: { label: 'Sandra Mitchell', initials: 'SM', color: '#2D6CDF', sub: 'Agency Admin · Peach State Pediatric' },
+    recruiter:    { label: 'Jerome Phillips', initials: 'JP', color: '#0EA5E9', sub: 'Recruiter / Scheduler' },
+    parent:       { label: 'Danielle Carter', initials: 'DC', color: '#F59E0B', sub: 'Parent · Child A' },
+    nurse:        { label: 'Tiana Johnson',   initials: 'TJ', color: '#16A34A', sub: 'RN · GAPP-trained' }
   };
 
-  // --------- Narrator UI ---------
-  function ensureNarrator() {
-    if (document.getElementById('tnx-narrator')) return;
-    const n = document.createElement('div');
-    n.id = 'tnx-narrator';
-    n.className = 'tnx-narrator';
-    n.innerHTML = `
-      <div class="tnx-narrator-progress"><div class="tnx-narrator-bar" id="tnx-narrator-bar"></div></div>
-      <div class="tnx-narrator-row">
-        <div class="tnx-narrator-persona" id="tnx-narrator-persona">
-          <div class="tnx-narrator-avatar" id="tnx-narrator-avatar">DV</div>
-          <div class="tnx-narrator-meta">
-            <div class="tnx-narrator-role" id="tnx-narrator-role">Demo viewer</div>
-            <div class="tnx-narrator-step" id="tnx-narrator-step">Step 0 / 0</div>
-          </div>
-        </div>
-        <div class="tnx-narrator-text">
-          <div class="tnx-narrator-title" id="tnx-narrator-title">Loading…</div>
-          <div class="tnx-narrator-desc" id="tnx-narrator-desc"></div>
-        </div>
-        <div class="tnx-narrator-controls">
-          <button class="tnx-narrator-btn" id="tnx-narrator-pause" title="Pause / Resume">⏸</button>
-          <button class="tnx-narrator-btn" id="tnx-narrator-skip" title="Skip step">⏭</button>
-          <button class="tnx-narrator-btn tnx-narrator-exit" id="tnx-narrator-exit" title="Exit demo">✕</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(n);
-    document.getElementById('tnx-narrator-pause').onclick = togglePause;
-    document.getElementById('tnx-narrator-skip').onclick = skipStep;
-    document.getElementById('tnx-narrator-exit').onclick = exit;
+  // -----------------------------------------------------------
+  // Helpers
+  // -----------------------------------------------------------
+  const wait = (ms) => new Promise((res) => setTimeout(() => { if (!aborted) res(); else res(); }, ms));
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function setRole(id) {
+    State.setRole(id);
+    const home = (window.TNX.ROLES.find(r => r.id === id) || {}).home || '#/dashboard';
+    location.hash = home;
+  }
+  async function goto(hash) {
+    if (location.hash !== hash) location.hash = hash;
+    await wait(420);
   }
 
-  function setNarrator({ role, title, desc, idx, total }) {
-    ensureNarrator();
-    const p = ROLE_AVATARS[role] || { label: 'Demo viewer', initials: 'DV', color: '#64748B' };
-    const av = document.getElementById('tnx-narrator-avatar');
-    av.textContent = p.initials;
-    av.style.background = p.color;
-    document.getElementById('tnx-narrator-role').textContent = p.label;
-    document.getElementById('tnx-narrator-step').textContent = `Step ${idx} / ${total}`;
-    document.getElementById('tnx-narrator-title').textContent = title;
-    document.getElementById('tnx-narrator-desc').textContent = desc || '';
-    const pct = total ? Math.round((idx / total) * 100) : 0;
-    document.getElementById('tnx-narrator-bar').style.width = pct + '%';
-  }
-
-  function removeNarrator() {
-    document.getElementById('tnx-narrator')?.remove();
-    document.getElementById('tnx-sim-shield')?.remove();
-  }
-
-  // --------- Click shield (so the user can't click around mid-sim) ---------
-  function ensureShield() {
-    if (document.getElementById('tnx-sim-shield')) return;
-    const s = document.createElement('div');
-    s.id = 'tnx-sim-shield';
-    s.className = 'tnx-sim-shield';
-    document.body.appendChild(s);
-  }
-
-  // --------- Spotlight (briefly highlights the element being acted on) ---------
   async function spotlight(selector, ms = 900) {
     const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
     if (!el) return;
@@ -89,34 +45,9 @@
     el.classList.remove('tnx-sim-spot');
   }
 
-  // --------- Helpers ---------
-  const wait = (ms) => new Promise((res) => {
-    const tick = () => { if (aborted) return res(); if (paused) return setTimeout(tick, 120); res(); };
-    setTimeout(tick, ms);
-  });
-  const setRole = (id) => {
-    State.setRole(id);
-    const home = window.TNX.ROLES.find(r => r.id === id)?.home || '#/dashboard';
-    location.hash = home;
-  };
-  const goto = (hash) => {
-    if (location.hash !== hash) location.hash = hash;
-    return wait(450);
-  };
-  const fillInput = (id, value) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.focus();
-    el.value = value;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-  const click = (selector) => {
-    const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
-    el?.click();
-  };
-
-  // --------- Biometric flash overlay (visual feedback for simulated sign) ---------
+  // -----------------------------------------------------------
+  // Biometric flash overlay (used by Cryptiq.sign in sim mode)
+  // -----------------------------------------------------------
   Sim.flashSign = function ({ subject, action }) {
     return new Promise((resolve) => {
       const f = document.createElement('div');
@@ -124,7 +55,7 @@
       f.innerHTML = `
         <div class="tnx-sim-flash-card">
           <div class="tnx-sim-flash-spinner"></div>
-          <div class="tnx-sim-flash-title">Cryptiq biometric check</div>
+          <div class="tnx-sim-flash-title">Biometric check</div>
           <div class="tnx-sim-flash-sub">${escapeHtml(subject || 'Demo')} · ${escapeHtml(action || '')}</div>
           <div class="tnx-sim-flash-bar"><div class="tnx-sim-flash-bar-inner"></div></div>
           <div class="tnx-sim-flash-hint">Simulated · skipping camera</div>
@@ -143,59 +74,57 @@
   };
   Sim.flashEnroll = Sim.flashSign;
 
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  function togglePause() {
-    paused = !paused;
-    document.getElementById('tnx-narrator-pause').textContent = paused ? '▶' : '⏸';
-  }
-  function skipStep() { if (stepResolve) { stepResolve('skip'); } }
-  function exit() {
-    aborted = true;
-    if (stepResolve) stepResolve('abort');
-    window.TNX_SIMULATING = false;
-    removeNarrator();
-    if (window.TNXComponents?.toast) window.TNXComponents.toast('Demo simulation ended', 'info');
-  }
-
-  // --------- Step list ---------
+  // -----------------------------------------------------------
+  // Step library — each step has on-screen action + callouts
+  // -----------------------------------------------------------
   function buildSteps() {
     return [
       {
         role: 'super_admin',
-        title: 'Demo viewer signs in (simulated)',
-        desc: 'Cryptiq biometric gate · liveness + 1:N face match · skipped here for the walkthrough.',
+        title: 'Platform admin signs in',
+        narrative: 'Every user — admin, agency, nurse, parent — passes a biometric gate before any action. Liveness + 1:N face match.',
+        callouts: [
+          { kind: 'security',   text: '2D liveness defeats photo / video replay attacks.' },
+          { kind: 'security',   text: '1:N face match against the original enrollment template.' },
+          { kind: 'efficiency', text: 'Every signed action is hashed and chained — no separate audit tooling needed.' }
+        ],
         run: async () => {
           setRole('super_admin');
-          await wait(700);
-          // Fake a mini sign flash even outside Cryptiq.sign for narrative clarity
-          await Sim.flashSign({ subject: 'Demo Viewer', action: 'Sign in to The Nurse Exchange' });
+          await wait(450);
+          await Sim.flashSign({ subject: 'Platform Admin', action: 'Sign in' });
           await goto('#/admin');
-          await wait(800);
+          await wait(450);
         }
       },
       {
         role: 'super_admin',
-        title: 'Platform admin reviews verified agencies',
-        desc: 'Georgia instance — agencies, nurse pool, audit chain. All high-trust actions cryptographically signed.',
+        title: 'Verified agencies, by the numbers',
+        narrative: 'The platform admin sees every agency on the network, their compliance posture, and pending verifications.',
+        callouts: [
+          { kind: 'capability', text: 'Pending agencies require platform-admin biometric approval before they can post cases.' },
+          { kind: 'capability', text: 'GA Home Care License + Medicaid Provider ID enforced before activation.' },
+          { kind: 'efficiency', text: 'Cross-agency nurse pool shows real-time supply across the whole network.' }
+        ],
         run: async () => {
           await goto('#/admin');
-          await spotlight('.stat-grid', 1100);
-          await spotlight('.card-header', 800);
-          await wait(900);
+          await wait(500);
+          await spotlight('.stat-grid', 800);
         }
       },
       {
         role: 'agency_admin',
-        title: 'Agency admin posts a new pediatric case',
-        desc: 'Sandra Mitchell at Peach State Pediatric posts a GAPP case for a new child. Auth + Medicaid eligibility required.',
+        title: 'Sandra posts a new pediatric case',
+        narrative: 'Agency admin posts a GAPP case for a child needing nursing care. Authorization and Medicaid eligibility are required up front.',
+        callouts: [
+          { kind: 'capability', text: 'Required skills, county, hours, payer program — captured at intake.' },
+          { kind: 'security',   text: 'Posting is biometrically signed by the admin — non-repudiable record.' },
+          { kind: 'efficiency', text: 'Match algorithm runs immediately; shortlist-ready candidates appear in seconds.' }
+        ],
         run: async () => {
           setRole('agency_admin');
           await goto('#/cases');
-          await wait(700);
-          // Simulated biometric sign for the case post
+          await wait(500);
           await Sim.flashSign({ subject: 'Sandra Mitchell', action: 'Post GAPP case: Child J' });
-          // Direct state mutation (skip form fiddling — simulation is about the story)
           const role = State.currentRole();
           const newCase = {
             id: 'cs-sim-' + Date.now().toString().slice(-4),
@@ -208,84 +137,92 @@
             start_date: new Date(Date.now() + 7*86400000).toISOString(),
             case_status: 'open', priority: 'urgent',
             notes: 'Newly authorized GAPP case. Family prefers RN with tracheostomy + g-tube experience.',
-            parent_id: null,
+            parent_id: 'pa-01',
             created_at: new Date().toISOString(),
             signed_by: 'Sandra Mitchell'
           };
           State.addCase(newCase);
-          // Compute matches for the new case
           const matches = State.getNurses().map(n => {
             let score = 40;
             if (n.counties_served.includes(newCase.county)) score += 20;
             const overlap = newCase.required_skills.filter(s => n.skills.includes(s)).length;
             score += (overlap / newCase.required_skills.length) * 30;
             if (n.primary_agency_id === role.agency_id) score += 6;
+            if (n.compliance_status === 'complete') score += 4;
             score = Math.max(12, Math.min(98, Math.round(score)));
             return { nurse_id: n.id, case_id: newCase.id, score, status: 'suggested' };
           }).sort((a,b) => b.score - a.score);
           State.setMatches(newCase.id, matches);
           State.logAudit({ actor: 'Sandra Mitchell', actor_role: 'Agency Admin', entity: 'Case', entity_name: 'Child J', action: 'created · biometric-signed [SIM]' });
-          location.hash = '#/case/' + newCase.id;
           window._simNewCaseId = newCase.id;
           window._simTopMatchId = matches[0]?.nurse_id;
-          await wait(900);
+          location.hash = '#/case/' + newCase.id;
+          await wait(700);
         }
       },
       {
         role: 'agency_admin',
         title: 'Match algorithm finds qualified nurses',
-        desc: 'Score weights skills, county, shift preference, agency network, and compliance status.',
+        narrative: 'Score weights skills overlap, county proximity, shift preference, agency network, and compliance status. Top matches surface within seconds of posting.',
+        callouts: [
+          { kind: 'efficiency', text: 'Average time-to-fill drops from ~14 days to ~3.8 days with cross-agency pool.' },
+          { kind: 'capability', text: 'Skill-overlap score distinguishes "qualified" from "perfect-fit" instantly.' },
+          { kind: 'capability', text: 'Cross-agency partners surface here too — supply scales across the network.' }
+        ],
         run: async () => {
-          // Already on case detail. Show the matches.
-          await spotlight('.app-main', 1000);
-          await spotlight('.match-ring, .nurse-card, [data-action="shortlist-nurse"]', 900);
-          await wait(800);
+          await spotlight('.match-ring, .nurse-card', 900);
         }
       },
       {
         role: 'agency_admin',
-        title: 'Shortlist a top match',
-        desc: 'Shortlisting a nurse for a parent is a clinical staffing decision — biometrically signed by the agency admin.',
+        title: 'Sandra shortlists the top match',
+        narrative: 'Shortlisting is a clinical staffing decision — surfaces the nurse to the family and signals consent for them to review the profile.',
+        callouts: [
+          { kind: 'security',   text: 'Shortlisting is biometrically signed — auditable evidence the agency vetted this candidate.' },
+          { kind: 'capability', text: 'Parents only see nurses the agency has explicitly approved for their child.' },
+          { kind: 'efficiency', text: 'No back-channel emails, no spreadsheets — the audit chain is the record of truth.' }
+        ],
         run: async () => {
-          const caseId = window._simNewCaseId;
-          const nurseId = window._simTopMatchId;
-          if (!caseId || !nurseId) { await wait(900); return; }
-          await spotlight('.match-ring, .nurse-card', 700);
+          const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
+          if (!caseId || !nurseId) return;
           await Sim.flashSign({ subject: 'Sandra Mitchell', action: 'Shortlist nurse for Child J' });
           State.updateMatchStatus(caseId, nurseId, 'shortlisted');
           State.updateCase(caseId, { case_status: 'shortlisting' });
           const n = State.getNurse(nurseId);
-          const fname = (n?.first_name || '') + ' ' + (n?.last_name || '');
-          State.logAudit({ actor: 'Sandra Mitchell', actor_role: 'Agency Admin', entity: 'Nurse', entity_name: fname.trim(), action: 'shortlisted for Child J · biometric-signed [SIM]' });
-          // Also assign a parent so parentHome will see this case
-          State.updateCase(caseId, { parent_id: 'pa-01' });
-          await wait(900);
+          const fname = ((n?.first_name || '') + ' ' + (n?.last_name || '')).trim();
+          State.logAudit({ actor: 'Sandra Mitchell', actor_role: 'Agency Admin', entity: 'Nurse', entity_name: fname, action: 'shortlisted for Child J · biometric-signed [SIM]' });
+          await wait(500);
         }
       },
       {
         role: 'parent',
-        title: 'Parent reviews the shortlist',
-        desc: 'Danielle Carter (Child A\'s guardian) sees Cryptiq-verified nurse profiles and books a meet & greet.',
+        title: 'Danielle reviews the shortlist',
+        narrative: 'The family logs in and sees only nurses the agency has shortlisted for them — verified profiles, real reviews, real face on file.',
+        callouts: [
+          { kind: 'security',   text: 'Every shortlisted nurse has a face matched to their license photo. The face the parent sees is the face that shows up.' },
+          { kind: 'capability', text: 'Privacy guards keep clinical notes hidden until parent-presence is confirmed.' },
+          { kind: 'efficiency', text: 'Parents make decisions in days, not weeks — they can book directly from the shortlist.' }
+        ],
         run: async () => {
           setRole('parent');
           await goto('#/parent-home');
-          await wait(700);
+          await wait(550);
           await spotlight('.nurse-card', 900);
-          await wait(800);
         }
       },
       {
         role: 'parent',
-        title: 'Parent books a meet & greet',
-        desc: 'Picks a date and time. The booking is biometrically signed — auditable evidence the parent consented.',
+        title: 'Danielle books a meet & greet',
+        narrative: 'The family picks a date and time. The booking is biometrically signed — auditable evidence the parent consented to this nurse.',
+        callouts: [
+          { kind: 'security',   text: 'Parent consent is signed and chained — defensible record for state audits.' },
+          { kind: 'capability', text: 'Virtual or in-person, agency-recorded for compliance.' },
+          { kind: 'efficiency', text: 'No phone tag — agency, parent, and nurse calendars sync in one flow.' }
+        ],
         run: async () => {
-          const caseId = window._simNewCaseId;
-          const nurseId = window._simTopMatchId;
-          if (!caseId || !nurseId) { await wait(900); return; }
-          await spotlight('.nurse-card', 700);
+          const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
+          if (!caseId || !nurseId) return;
           await Sim.flashSign({ subject: 'Danielle Carter', action: 'Book meet & greet' });
-          const n = State.getNurse(nurseId);
-          const fname = (n?.first_name || '') + ' ' + (n?.last_name || '');
           const meet = {
             id: 'mg-sim-' + Date.now().toString().slice(-4),
             case_id: caseId, nurse_id: nurseId, parent_id: 'pa-01',
@@ -294,116 +231,277 @@
             parent_feedback: null, agency_feedback: null
           };
           State.addMeet(meet);
-          State.logAudit({ actor: 'Danielle Carter', actor_role: 'Parent / Guardian', entity: 'Meet & Greet', entity_name: `${fname.trim()} ↔ Child J`, action: 'scheduled · biometric-signed [SIM]' });
-          await wait(900);
+          const n = State.getNurse(nurseId);
+          const fname = ((n?.first_name || '') + ' ' + (n?.last_name || '')).trim();
+          State.logAudit({ actor: 'Danielle Carter', actor_role: 'Parent / Guardian', entity: 'Meet & Greet', entity_name: `${fname} ↔ Child J`, action: 'scheduled · biometric-signed [SIM]' });
+          await wait(500);
         }
       },
       {
         role: 'nurse',
-        title: 'Nurse sees the new opportunity',
-        desc: 'Tiana Johnson, RN — opens her dashboard and sees matched cases ranked by skill + location fit.',
+        title: 'Tiana sees the new opportunity',
+        narrative: 'Nurse opens her app and sees the assignment matched by skills + location, with parent + child context.',
+        callouts: [
+          { kind: 'capability', text: 'Nurses see opportunities ranked by match score, not arbitrary lists.' },
+          { kind: 'efficiency', text: 'No application back-and-forth — accept or decline in one tap.' },
+          { kind: 'security',   text: 'Availability calendar is biometrically signed — real commitment.' }
+        ],
         run: async () => {
           setRole('nurse');
           await goto('#/nurse-home');
-          await wait(700);
-          await spotlight('.match-ring, .stat-card', 900);
-          await wait(800);
+          await wait(550);
+          await spotlight('.stat-card, .match-ring', 900);
         }
       },
       {
         role: 'nurse',
-        title: 'Nurse accepts the assignment',
-        desc: 'Acceptance is a binding clinical commitment — biometrically signed by the nurse, logged to the audit chain.',
+        title: 'Tiana accepts the assignment',
+        narrative: 'Acceptance is a binding clinical commitment. Biometrically signed, logged to the audit chain, visible to agency + parent.',
+        callouts: [
+          { kind: 'security',   text: 'Acceptance is non-repudiable — the nurse can\'t later claim the assignment was assigned without consent.' },
+          { kind: 'capability', text: 'Sandra and Danielle are notified instantly with the signed receipt.' },
+          { kind: 'efficiency', text: 'Onboarding paperwork pre-filled from the verified license + enrollment data.' }
+        ],
         run: async () => {
-          const caseId = window._simNewCaseId;
-          const nurseId = window._simTopMatchId;
-          if (!caseId || !nurseId) { await wait(900); return; }
-          await spotlight('.stat-card', 700);
+          const caseId = window._simNewCaseId, nurseId = window._simTopMatchId;
+          if (!caseId || !nurseId) return;
           await Sim.flashSign({ subject: 'Tiana Johnson', action: 'Accept Child J assignment' });
           State.updateMatchStatus(caseId, nurseId, 'accepted');
           const n = State.getNurse(nurseId);
-          const fname = (n?.first_name || '') + ' ' + (n?.last_name || '');
-          State.logAudit({ actor: fname.trim(), actor_role: 'Nurse', entity: 'Opportunity', entity_name: 'Child J', action: 'accepted · biometric-signed [SIM]' });
-          await wait(900);
+          const fname = ((n?.first_name || '') + ' ' + (n?.last_name || '')).trim();
+          State.logAudit({ actor: fname, actor_role: 'Nurse', entity: 'Opportunity', entity_name: 'Child J', action: 'accepted · biometric-signed [SIM]' });
+          await wait(500);
         }
       },
       {
         role: 'super_admin',
         title: 'Audit chain shows every signed action',
-        desc: 'Each action is hashed and chained — agencies can prove who decided what, and when, to GAPP auditors.',
+        narrative: 'Each action is hashed and chained. State auditors get the proof; agencies get a defensible record without spreadsheets.',
+        callouts: [
+          { kind: 'security',   text: 'SHA-256 hashed signatures with timestamp, actor, action, and biometric scores.' },
+          { kind: 'capability', text: 'Compliance export pulls the entire chain to JSON in one click.' },
+          { kind: 'efficiency', text: 'Audit prep that took weeks now takes minutes.' }
+        ],
         run: async () => {
           setRole('super_admin');
           await goto('#/audit');
-          await wait(800);
-          await spotlight('.tbl, .stat-grid, .card', 1500);
-          await wait(1000);
+          await wait(700);
+          await spotlight('.tbl, .stat-grid', 1200);
         }
       },
       {
         role: 'super_admin',
         title: 'Walkthrough complete',
-        desc: 'Every step you just saw was cryptographically signed and stored locally. Try the platform yourself with any of the personas.',
+        narrative: 'You just watched 4 stakeholders, 6 biometrically-signed actions, all chained in audit. Try the platform yourself with any persona.',
+        callouts: [
+          { kind: 'capability', text: 'Reset to seed any time from Platform Settings → Remove demo additions.' },
+          { kind: 'capability', text: 'Add real nurses via Pool → Add nurse (license-upload invite, full enrollment, or quick-demo bypass).' },
+          { kind: 'efficiency', text: 'Switch personas any time using "Demo role" in the topbar.' }
+        ],
         run: async () => {
           await goto('#/admin');
-          await wait(800);
+          await wait(450);
         }
       }
     ];
   }
 
-  // --------- Run loop ---------
-  async function start({ resetState = true } = {}) {
+  // -----------------------------------------------------------
+  // Intro storyboard — shown before step 1
+  // -----------------------------------------------------------
+  function showIntro() {
+    return new Promise((resolve, reject) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'tnx-sim-intro';
+      overlay.innerHTML = `
+        <div class="tnx-sim-intro-card">
+          <div class="tnx-sim-intro-eyebrow">
+            <span class="pulse"></span> GUIDED WALKTHROUGH · ~3 minutes
+          </div>
+          <h1>How The Nurse Exchange works — end to end</h1>
+          <p>You'll watch a real placement happen across 4 stakeholders, with every high-stakes action biometrically signed and audit-chained. The camera is skipped (this is a simulation), but every other action is real and persists in the demo.</p>
+
+          <div class="tnx-sim-intro-flow">
+            <div class="flow-node"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Platform Admin</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><div class="dot" style="background:#2D6CDF">SM</div><div class="lbl">Agency Admin</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><div class="dot" style="background:#F59E0B">DC</div><div class="lbl">Parent</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><div class="dot" style="background:#16A34A">TJ</div><div class="lbl">Nurse</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Audit recap</div></div>
+          </div>
+
+          <div class="tnx-sim-intro-pillars">
+            <div class="pillar"><div class="pillar-ico" style="color:#16A34A">●</div><div><b>Security</b><div>Liveness + 1:N face match · SHA-256 signatures · audit chain</div></div></div>
+            <div class="pillar"><div class="pillar-ico" style="color:#2D6CDF">●</div><div><b>Capability</b><div>Cross-agency nurse pool · skill-aware match · privacy guards</div></div></div>
+            <div class="pillar"><div class="pillar-ico" style="color:#F59E0B">●</div><div><b>Efficiency</b><div>~3.8 days time-to-fill · in-flow scheduling · audit-ready exports</div></div></div>
+          </div>
+
+          <div class="tnx-sim-intro-actions">
+            <button class="btn btn-ghost" id="tnx-sim-cancel">Cancel</button>
+            <button class="btn btn-secondary" id="tnx-sim-soft-reset" title="Removes any demo additions before starting">↺ Reset to seed first</button>
+            <button class="btn btn-brand" id="tnx-sim-begin">Begin walkthrough →</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      let resetFirst = false;
+      document.getElementById('tnx-sim-cancel').onclick = () => { overlay.remove(); reject(new Error('cancelled')); };
+      document.getElementById('tnx-sim-begin').onclick = () => { overlay.remove(); resolve({ resetFirst }); };
+      const resetBtn = document.getElementById('tnx-sim-soft-reset');
+      resetBtn.onclick = () => {
+        resetFirst = !resetFirst;
+        resetBtn.classList.toggle('btn-brand', resetFirst);
+        resetBtn.classList.toggle('btn-secondary', !resetFirst);
+        resetBtn.textContent = resetFirst ? '✓ Will reset to seed' : '↺ Reset to seed first';
+      };
+    });
+  }
+
+  // -----------------------------------------------------------
+  // Narrator (per-step UI)
+  // -----------------------------------------------------------
+  function ensureNarrator() {
+    if (document.getElementById('tnx-narrator')) return;
+    const n = document.createElement('div');
+    n.id = 'tnx-narrator';
+    n.className = 'tnx-narrator tnx-narrator-guided';
+    n.innerHTML = `
+      <div class="tnx-narrator-progress"><div class="tnx-narrator-bar" id="tnx-narrator-bar"></div></div>
+      <div class="tnx-narrator-body">
+        <div class="tnx-narrator-head">
+          <div class="tnx-narrator-persona">
+            <div class="tnx-narrator-avatar" id="tnx-narrator-avatar">PA</div>
+            <div class="tnx-narrator-meta">
+              <div class="tnx-narrator-role" id="tnx-narrator-role">—</div>
+              <div class="tnx-narrator-substep">
+                <span id="tnx-narrator-rolesub" class="tnx-narrator-rolesub"></span>
+                <span class="tnx-narrator-step" id="tnx-narrator-step">Step 0 / 0</span>
+              </div>
+            </div>
+          </div>
+          <div class="tnx-narrator-controls">
+            <button class="tnx-narrator-btn tnx-narrator-exit" id="tnx-narrator-exit" title="Exit walkthrough">✕</button>
+          </div>
+        </div>
+        <div class="tnx-narrator-title" id="tnx-narrator-title">Loading…</div>
+        <div class="tnx-narrator-desc" id="tnx-narrator-desc"></div>
+        <div class="tnx-narrator-callouts" id="tnx-narrator-callouts"></div>
+        <div class="tnx-narrator-foot">
+          <button class="btn btn-ghost btn-sm" id="tnx-narrator-prev">← Previous</button>
+          <span class="tnx-narrator-running" id="tnx-narrator-running" style="display:none">Running step…</span>
+          <button class="btn btn-brand btn-sm" id="tnx-narrator-next" disabled>Next →</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(n);
+    document.getElementById('tnx-narrator-exit').onclick = exit;
+    document.getElementById('tnx-narrator-prev').onclick = () => { goPrev(); };
+    document.getElementById('tnx-narrator-next').onclick = () => { goNext(); };
+  }
+
+  function setNarrator({ role, title, desc, callouts, idx, total }) {
+    ensureNarrator();
+    const p = ROLE[role] || { label: 'Demo viewer', initials: 'DV', color: '#64748B', sub: '' };
+    const av = document.getElementById('tnx-narrator-avatar');
+    av.textContent = p.initials;
+    av.style.background = p.color;
+    document.getElementById('tnx-narrator-role').textContent = p.label;
+    document.getElementById('tnx-narrator-rolesub').textContent = p.sub || '';
+    document.getElementById('tnx-narrator-step').textContent = `Step ${idx} of ${total}`;
+    document.getElementById('tnx-narrator-title').textContent = title;
+    document.getElementById('tnx-narrator-desc').textContent = desc || '';
+    document.getElementById('tnx-narrator-callouts').innerHTML = (callouts || []).map(c => {
+      const tone = c.kind === 'security' ? 'sec' : c.kind === 'efficiency' ? 'eff' : 'cap';
+      const label = c.kind === 'security' ? 'Security' : c.kind === 'efficiency' ? 'Efficiency' : 'Capability';
+      return `<div class="callout callout-${tone}"><span class="callout-tag">${label}</span> ${escapeHtml(c.text)}</div>`;
+    }).join('');
+    const pct = total ? Math.round((idx / total) * 100) : 0;
+    document.getElementById('tnx-narrator-bar').style.width = pct + '%';
+    // Prev disabled on first step
+    document.getElementById('tnx-narrator-prev').disabled = idx <= 1;
+    document.getElementById('tnx-narrator-next').textContent = idx >= total ? 'Finish ✓' : 'Next →';
+  }
+
+  function setRunning(running) {
+    document.getElementById('tnx-narrator-running').style.display = running ? '' : 'none';
+    document.getElementById('tnx-narrator-next').disabled = running;
+  }
+
+  function removeNarrator() {
+    document.getElementById('tnx-narrator')?.remove();
+  }
+
+  function goNext() { if (nextResolve) { const r = nextResolve; nextResolve = null; r('next'); } }
+  function goPrev() { if (nextResolve) { const r = nextResolve; nextResolve = null; r('prev'); } }
+  function exit() {
+    aborted = true;
+    if (nextResolve) { const r = nextResolve; nextResolve = null; r('abort'); }
+    window.TNX_SIMULATING = false;
+    removeNarrator();
+    document.querySelector('.tnx-sim-final')?.remove();
+    document.querySelector('.tnx-sim-intro')?.remove();
+    if (window.TNXComponents?.toast) window.TNXComponents.toast('Walkthrough exited', 'info');
+  }
+
+  function waitForNext() {
+    return new Promise(res => { nextResolve = res; });
+  }
+
+  // -----------------------------------------------------------
+  // Driver
+  // -----------------------------------------------------------
+  async function start({ resetState = false } = {}) {
     if (window.TNX_SIMULATING) return;
     aborted = false;
-    paused = false;
-    stepIdx = 0;
+    let intro;
+    try {
+      intro = await showIntro();
+    } catch { return; }
+    if (intro?.resetFirst) {
+      try { State.purgeDemoAdditions(); } catch {}
+    }
     if (resetState) {
       try { State.reset(); } catch {}
-      try { localStorage.removeItem('tnx.cryptiq.v1'); } catch {}
-      try { localStorage.removeItem('tnx.demo.displayName'); } catch {}
-      try { sessionStorage.setItem('tnx.cq.gatePassed', '1'); } catch {}
     }
+    sessionStorage.setItem('tnx.cq.gatePassed', '1');
     window.TNX_SIMULATING = true;
-    ensureShield();
     ensureNarrator();
-    const steps = buildSteps();
-    for (let i = 0; i < steps.length; i++) {
-      if (aborted) break;
-      const s = steps[i];
-      setNarrator({ role: s.role, title: s.title, desc: s.desc, idx: i + 1, total: steps.length });
-      // Per-step race: real run vs. skip
-      let skipFn;
-      const skipP = new Promise((res) => { skipFn = res; });
-      stepResolve = (reason) => { skipFn(reason); };
-      try {
-        await Promise.race([
-          s.run(),
-          skipP
-        ]);
-      } catch (e) { console.warn('sim step error', e); }
-      stepResolve = null;
-      await wait(900); // breathing room between steps
+    currentSteps = buildSteps();
+    stepIdx = 0;
+    while (stepIdx < currentSteps.length && !aborted) {
+      const s = currentSteps[stepIdx];
+      setNarrator({ role: s.role, title: s.title, desc: s.narrative, callouts: s.callouts, idx: stepIdx + 1, total: currentSteps.length });
+      setRunning(true);
+      try { await s.run(); } catch (e) { console.warn('sim step error', e); }
+      setRunning(false);
+      const choice = await waitForNext();
+      if (choice === 'abort') break;
+      if (choice === 'prev' && stepIdx > 0) stepIdx--;
+      else stepIdx++;
     }
     if (!aborted) {
-      // Final overlay
       const f = document.createElement('div');
       f.className = 'tnx-sim-final';
       f.innerHTML = `
         <div class="tnx-sim-final-card">
           <div class="tnx-sim-final-check">✓</div>
           <h2>Walkthrough complete</h2>
-          <p>You just watched a 4-stakeholder workflow with 6 cryptographically-signed actions. Every signature is in the audit chain.</p>
+          <p>You watched 4 stakeholders complete a placement with 6 biometrically-signed, audit-chained actions. Switch personas any time from "Demo role" in the topbar to explore on your own.</p>
           <div class="tnx-sim-final-actions">
-            <button class="btn btn-secondary" id="tnx-sim-restart">Replay</button>
-            <button class="btn btn-brand" id="tnx-sim-explore">Explore the platform</button>
+            <button class="btn btn-secondary" id="tnx-sim-restart">Replay walkthrough</button>
+            <button class="btn btn-brand" id="tnx-sim-explore">Explore as Platform Admin →</button>
           </div>
         </div>
       `;
       document.body.appendChild(f);
-      document.getElementById('tnx-sim-restart').onclick = () => { f.remove(); start(); };
-      document.getElementById('tnx-sim-explore').onclick = () => { f.remove(); exit(); };
+      document.getElementById('tnx-sim-restart').onclick = () => { f.remove(); removeNarrator(); window.TNX_SIMULATING = false; start({ resetState: false }); };
+      document.getElementById('tnx-sim-explore').onclick = () => { f.remove(); removeNarrator(); window.TNX_SIMULATING = false; setRole('super_admin'); };
     }
     window.TNX_SIMULATING = false;
+    removeNarrator();
   }
 
   Sim.start = start;

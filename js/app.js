@@ -182,8 +182,8 @@ function renderTopbar() {
 function renderFooter() {
   return `
     <div class="app-footer-inner">
-      <span class="cq-secured-badge" title="All actions biometrically signed · LookAway guards active">
-        <span class="cq-dot"></span> Cryptiq secured
+      <span class="cq-secured-badge" title="All actions biometrically signed">
+        <span class="cq-dot"></span> Verified · biometric-secured
       </span>
       <span class="app-footer-meta">All actions biometrically signed · LookAway privacy guards active</span>
     </div>
@@ -234,9 +234,9 @@ const routes = {
   '/admin-agencies': () => Views.admin(),
   '/admin-nurses': () => Views.pool(),
   '/nurse-home': () => Views.nurseHome(),
-  '/nurse-opps': () => Views.nurseHome(),
-  '/nurse-schedule': () => Views.nurseHome(),
-  '/nurse-creds': () => Views.nurseHome(),
+  '/nurse-opps': () => Views.nurseOpps(),
+  '/nurse-schedule': () => Views.nurseSchedule(),
+  '/nurse-creds': () => Views.nurseCreds(),
   '/parent-home': () => Views.parentHome()
 };
 
@@ -367,8 +367,13 @@ document.addEventListener('click', (e) => {
     case 'upload-doc': triggerDocUpload(el.dataset.id || el.dataset.docKey); break;
     case 'remove-doc': removeDoc(el.dataset.id || el.dataset.docKey); break;
     case 'admin-purge':
-      if (State.currentRole().id !== 'super_admin') { toast('Only platform admin can purge data', 'info'); return; }
+      if (State.currentRole().id !== 'super_admin') { toast('Only platform admin can reset data', 'info'); return; }
       openModal(adminPurgeModal()); break;
+    case 'admin-purge-soft': adminPurgeSoft(); break;
+    case 'admin-purge-full':
+      closeModal();
+      setTimeout(() => openModal(adminPurgeFullConfirmModal()), 220);
+      break;
     case 'admin-purge-confirm': adminPurgeConfirm(); break;
     case 'parent-book': openModal(parentBookModal(el.dataset.nurse, el.dataset.case)); break;
     case 'parent-feedback': handleParentFeedback(el.dataset.meet, el.dataset.fb); break;
@@ -672,14 +677,14 @@ function addNurseChooseHTML() {
             <div class="badge-ico">${icon('mail',18)}</div>
             <div style="flex:1; min-width:0">
               <h4 style="margin-bottom:2px">Doc upload + invite link <span class="cq-verified-chip" style="margin-left:6px">recommended</span></h4>
-              <div class="persona">Upload their license, send them a Cryptiq link. They scan their face on phone, system verifies it matches the doc photo.</div>
+              <div class="persona">Upload their license, send them a secure link. They scan their face on phone, the system verifies it matches the doc photo.</div>
             </div>
             ${icon('chevronRight',16)}
           </button>
           <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px" data-action="add-nurse-mode" data-mode="full">
             <div class="badge-ico">${icon('shield',18)}</div>
             <div style="flex:1; min-width:0">
-              <h4 style="margin-bottom:2px">Full Cryptiq enrollment</h4>
+              <h4 style="margin-bottom:2px">Full biometric enrollment</h4>
               <div class="persona">3-step in-person flow: scan their license, capture liveness selfie, biometric 1:N match against the doc photo.</div>
             </div>
             ${icon('chevronRight',16)}
@@ -707,7 +712,7 @@ function addNurseDemoHTML() {
       <div class="modal-head"><h3>${icon('users',14)} Demo nurse · quick add</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
       <div class="modal-body">
         <div style="background:rgba(245,158,11,0.08); border-left:3px solid var(--warn); padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:var(--navy)">
-          <b>Demo mode.</b> Skips biometric. The nurse will appear in the pool but won't show the Cryptiq-verified chip until real enrollment.
+          <b>Demo mode.</b> Skips biometric. The nurse will appear in the pool but won't show the Verified chip until real enrollment.
         </div>
         <div class="form-row">
           <div class="field"><label>First name</label><input class="input" id="and-first" placeholder="Tiana"></div>
@@ -744,7 +749,7 @@ function addNurseDocInviteHTML() {
     <div class="modal" style="max-width:600px">
       <div class="modal-head"><h3>${icon('mail',14)} Invite by license upload</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
       <div class="modal-body">
-        <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px">Upload their RN/LPN license. We'll generate a tokenized Cryptiq link and email it to them — they scan their face on their phone, the system 1:N matches it against the document photo, and the nurse appears verified in your pool.</p>
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px">Upload their RN/LPN license. We'll generate a tokenized verification link and email it to them — they scan their face on their phone, the system 1:N matches it against the document photo, and the nurse appears verified in your pool.</p>
         <div class="form-row">
           <div class="field"><label>First name</label><input class="input" id="ani-first"></div>
           <div class="field"><label>Last name</label><input class="input" id="ani-last"></div>
@@ -781,7 +786,7 @@ function addNurseDocInviteHTML() {
 function addNurseFullHTML() {
   return `
     <div class="modal" style="max-width:720px">
-      <div class="modal-head"><h3>${icon('shield',14)} Full Cryptiq enrollment</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-head"><h3>${icon('shield',14)} Full biometric enrollment</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
       <div class="modal-body">
         <div class="form-row">
           <div class="field"><label>First name</label><input class="input" id="an-first"></div>
@@ -811,7 +816,7 @@ function addNurseFullHTML() {
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" data-action="add-nurse-mode" data-mode="choose">← Back</button>
-        <button class="btn btn-brand" data-action="submit-add-nurse">${icon('shield',14)} Start Cryptiq enrollment</button>
+        <button class="btn btn-brand" data-action="submit-add-nurse">${icon('shield',14)} Start biometric enrollment</button>
       </div>
     </div>
   `;
@@ -1017,7 +1022,7 @@ async function submitAddNurse() {
     license_type: lt,
     license_number: ln || 'GA-NEW-000000',
     license_state: 'GA',
-    bio: 'New to the platform — Cryptiq-enrolled with verified face + document match.',
+    bio: 'New to the platform — Identity-verified with verified face + document match.',
     counties_served: counties.length ? counties : ['Fulton'],
     languages: ['English'],
     years_experience: yrs,
@@ -1048,7 +1053,7 @@ async function submitAddNurse() {
     match_score: enrollment.matchScore,
     hash: enrollment.hash
   });
-  State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Nurse', entity_name: fullName(n), action: `Cryptiq-enrolled · face match ${(enrollment.matchScore*100).toFixed(1)}% · ${Cryptiq.shortHash(enrollment.hash)}` });
+  State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Nurse', entity_name: fullName(n), action: `Identity-verified · face match ${(enrollment.matchScore*100).toFixed(1)}% · ${Cryptiq.shortHash(enrollment.hash)}` });
   toast(`${fullName(n)} enrolled with verified biometric. Upload remaining credentials to activate.`, 'success');
   render();
 }
@@ -1490,21 +1495,72 @@ function removeDoc(docKey) {
 // =========================================================
 function adminPurgeModal() {
   return `
+    <div class="modal" style="max-width:560px">
+      <div class="modal-head"><h3>${icon('alert',14)} Reset demo data</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px">Choose how much to reset. Both require a biometric signature.</p>
+        <div style="display:grid; grid-template-columns:1fr; gap:10px">
+          <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px" data-action="admin-purge-soft">
+            <div class="badge-ico" style="background:linear-gradient(135deg,var(--ocean),var(--teal))">${icon('ripple',18)}</div>
+            <div style="flex:1; min-width:0">
+              <h4 style="margin-bottom:2px">Remove demo additions only</h4>
+              <div class="persona">Keeps the seed (8 cases, 48 nurses, original meets). Removes anything you or the simulation added — extra cases, demo nurses, simulated meets, uploaded files, signatures.</div>
+            </div>
+            ${icon('chevronRight',16)}
+          </button>
+          <button class="role-card" style="text-align:left; flex-direction:row; align-items:center; gap:14px; padding:16px; border-color:rgba(225,87,89,0.4)" data-action="admin-purge-full">
+            <div class="badge-ico" style="background:linear-gradient(135deg,#e15759,#a31e1f)">${icon('alert',18)}</div>
+            <div style="flex:1; min-width:0">
+              <h4 style="margin-bottom:2px; color:var(--err)">Wipe everything</h4>
+              <div class="persona">Full reset — clears all overlay state, signatures, enrollments, uploaded credentials, and the display name. The page will reload back to the original seed data.</div>
+            </div>
+            ${icon('chevronRight',16)}
+          </button>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function adminPurgeFullConfirmModal() {
+  return `
     <div class="modal" style="max-width:480px">
-      <div class="modal-head"><h3>${icon('alert',14)} Purge demo data</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
+      <div class="modal-head"><h3>${icon('alert',14)} Wipe everything</h3><button class="modal-close" data-action="close-modal">${icon('x',16)}</button></div>
       <div class="modal-body">
         <div style="background:rgba(225,87,89,0.08); border-left:3px solid var(--err); padding:12px 14px; border-radius:8px; color:#7a1e1e; font-size:13px; margin-bottom:14px">
-          <b>Destructive action.</b> This wipes all locally-stored cases, nurses, meets, messages, audit logs, signatures, enrollments, and uploaded credential files. Cannot be undone.
+          <b>Destructive.</b> Page will reload back to seed.
         </div>
         <p style="font-size:13px; color:var(--text-muted); margin-bottom:8px">Type <code style="background:var(--surface-alt); padding:2px 6px; border-radius:4px">PURGE</code> to confirm.</p>
         <input class="input" id="purge-confirm-input" placeholder="PURGE" style="text-transform:uppercase; letter-spacing:0.1em; font-weight:700">
       </div>
       <div class="modal-foot">
         <button class="btn btn-ghost" data-action="close-modal">Cancel</button>
-        <button class="btn btn-danger" data-action="admin-purge-confirm">${icon('alert',14)} Purge & sign</button>
+        <button class="btn btn-danger" data-action="admin-purge-confirm">${icon('alert',14)} Wipe & sign</button>
       </div>
     </div>
   `;
+}
+
+async function adminPurgeSoft() {
+  const role = State.currentRole();
+  if (role.id !== 'super_admin') { toast('Only platform admin can purge', 'info'); return; }
+  closeModal();
+  try {
+    await Cryptiq.sign({
+      action: 'Remove demo additions',
+      purpose: 'Soft reset — preserves seed, drops user-added entities',
+      subject: role.name
+    });
+  } catch { toast('Reset cancelled — signature required', 'info'); return; }
+  const before = { nurses: State.getNurses().length, cases: State.getCases().length, meets: State.getMeets().length };
+  State.purgeDemoAdditions();
+  const after = { nurses: State.getNurses().length, cases: State.getCases().length, meets: State.getMeets().length };
+  State.logAudit({ actor: role.name, actor_role: role.label, entity: 'Demo reset', entity_name: 'soft', action: `removed ${before.nurses - after.nurses} nurses, ${before.cases - after.cases} cases, ${before.meets - after.meets} meets` });
+  toast(`Restored to seed · removed ${(before.nurses - after.nurses) + (before.cases - after.cases) + (before.meets - after.meets)} demo additions`, 'success');
+  render();
 }
 
 async function adminPurgeConfirm() {
