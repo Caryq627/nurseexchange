@@ -795,8 +795,32 @@ table.tbl { width: 100%; border-collapse: collapse; }
   .hero p.lead, .hero-shell .hero p.lead { font-size: 15px; }
   .hero-cta { flex-direction: column; width: 100%; }
   .hero-cta .btn { width: 100%; }
-  .hero-stats, .hero-shell .hero-stats { gap: 24px; flex-wrap: wrap; margin-top: 28px; padding-top: 18px; }
-  .hero-stat .num, .hero-shell .hero-stat .num { font-size: 22px; }
+  /* Stats — 3 equal columns on mobile, each in a subtle card for clean alignment */
+  .hero-stats, .hero-shell .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .hero-stat {
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px 6px;
+    min-width: 0;
+  }
+  .hero-stat .num, .hero-shell .hero-stat .num {
+    font-size: 19px; line-height: 1.1;
+    margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hero-stat .label, .hero-shell .hero-stat .label {
+    font-size: 9px; letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
   .hero-visual { max-width: 340px; }
   .hero-shell .hero-visual::before { inset: 40%; }
   .float-card { padding: 10px 12px; }
