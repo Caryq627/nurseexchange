@@ -202,7 +202,15 @@ function roleMenu() {
         <button class="modal-close" data-action="close-modal">${icon('x',16)}</button>
       </div>
       <div class="modal-body">
-        <p style="color:var(--text-muted); font-size:13px; margin-bottom:18px">Jump between user roles to experience each side of the platform. State persists across sessions via localStorage — reset from any page.</p>
+        <button class="walkthrough-banner" data-action="start-simulation">
+          <div class="walkthrough-banner-icon">▶</div>
+          <div class="walkthrough-banner-text">
+            <div class="walkthrough-banner-title">Watch the guided walkthrough</div>
+            <div class="walkthrough-banner-sub">11 steps · 4 stakeholders · feature callouts on each step</div>
+          </div>
+          ${icon('chevronRight',14)}
+        </button>
+        <p style="color:var(--text-muted); font-size:13px; margin: 14px 0 14px">Or jump straight into a role:</p>
         <div class="role-grid-mobile" style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px">
           ${window.TNX.ROLES.map(r => `
             <button class="role-card" data-action="switch-role" data-id="${r.id}">
@@ -324,6 +332,7 @@ document.addEventListener('click', (e) => {
       break;
     case 'open-notifications': openNotifications(); break;
     case 'open-assistant': openAssistant(); break;
+    case 'close-popover': closePopovers(); break;
     case 'assistant-send': sendAssistantMessage(); break;
     case 'assistant-quick': quickAssistant(el.dataset.q); break;
     case 'switch-role':
@@ -1960,7 +1969,10 @@ function openNotifications() {
     <div class="tnx-popover" id="tnx-notifs">
       <div class="tnx-popover-head">
         <h3>${icon('bell',14)} Notifications</h3>
-        <small>${items.length} active</small>
+        <div style="display:flex; align-items:center; gap:10px">
+          <small>${items.length} active</small>
+          <button class="popover-close" data-action="close-popover" aria-label="Close">${icon('x',14)}</button>
+        </div>
       </div>
       <div class="tnx-popover-body">
         ${items.length === 0 ? '<div class="tnx-empty">All clear — no pending alerts.</div>' :
@@ -2017,7 +2029,10 @@ function renderAssistant() {
     <div class="tnx-popover tnx-assistant" id="tnx-assistant">
       <div class="tnx-popover-head">
         <h3>${icon('message',14)} Assistant</h3>
-        <small>Type or pick a command</small>
+        <div style="display:flex; align-items:center; gap:10px">
+          <small>Type or pick a command</small>
+          <button class="popover-close" data-action="close-popover" aria-label="Close">${icon('x',14)}</button>
+        </div>
       </div>
       <div class="tnx-popover-body" id="assistant-thread">
         ${_assistantHistory.map(m => `
