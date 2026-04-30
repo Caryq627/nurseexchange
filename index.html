@@ -37,7 +37,7 @@
       <a href="#roles">For agencies</a>
       <a href="#roles">For nurses</a>
       <a href="#roles">For families</a>
-      <a href="app.html" class="btn btn-secondary btn-sm">Open demo</a>
+      <a href="app.html?sim=1" class="btn btn-secondary btn-sm">▶ Try demo</a>
     </div>
   </nav>
 
@@ -180,8 +180,12 @@
   </section>
 
   <section class="role-picker" id="roles">
-    <h2>Enter the demo</h2>
-    <p class="sub">Try each role — every dashboard is fully interactive with live Georgia-specific seed data.</p>
+    <h2>Or jump into any role</h2>
+    <p class="sub">Skip the walkthrough — every dashboard is fully interactive with live Georgia-specific seed data.</p>
+    <div style="text-align:center; margin: 0 auto 28px; max-width:520px">
+      <a href="app.html?sim=1" class="btn btn-brand btn-lg" style="display:inline-flex; align-items:center; gap:10px">▶ Watch the guided walkthrough</a>
+      <p style="margin-top:10px; font-size:12px; color:var(--text-muted)">Same demo, walked through step-by-step with feature callouts.</p>
+    </div>
 
     <div class="role-grid">
       <a class="role-card" href="app.html#/dashboard" onclick="localStorage.setItem('tnx.role','agency_admin')">

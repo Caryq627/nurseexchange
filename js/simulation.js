@@ -46,31 +46,82 @@
   }
 
   // -----------------------------------------------------------
-  // Biometric flash overlay (used by Cryptiq.sign in sim mode)
+  // Biometric flash overlay — opens real camera, captures, animates match
   // -----------------------------------------------------------
-  Sim.flashSign = function ({ subject, action }) {
-    return new Promise((resolve) => {
-      const f = document.createElement('div');
-      f.className = 'tnx-sim-flash';
-      f.innerHTML = `
-        <div class="tnx-sim-flash-card">
-          <div class="tnx-sim-flash-spinner"></div>
-          <div class="tnx-sim-flash-title">Biometric check</div>
-          <div class="tnx-sim-flash-sub">${escapeHtml(subject || 'Demo')} · ${escapeHtml(action || '')}</div>
-          <div class="tnx-sim-flash-bar"><div class="tnx-sim-flash-bar-inner"></div></div>
-          <div class="tnx-sim-flash-hint">Simulated · skipping camera</div>
+  Sim.flashSign = async function ({ subject, action }) {
+    const f = document.createElement('div');
+    f.className = 'tnx-sim-flash tnx-sim-flash-camera';
+    f.innerHTML = `
+      <div class="tnx-sim-flash-card">
+        <div class="tnx-sim-flash-vf" id="sim-flash-vf">
+          <video id="sim-flash-video" autoplay playsinline muted></video>
+          <div class="tnx-sim-flash-ring"></div>
+          <div class="tnx-sim-flash-overlay" id="sim-flash-cam-msg">Starting camera…</div>
         </div>
-      `;
-      document.body.appendChild(f);
-      setTimeout(() => {
-        const titleEl = f.querySelector('.tnx-sim-flash-title');
-        const sub = f.querySelector('.tnx-sim-flash-sub');
-        if (titleEl) titleEl.innerHTML = '✓ Signed';
-        if (sub) sub.innerHTML = `Liveness ${(96 + Math.random()*3).toFixed(1)}% · 1:N match ${(95 + Math.random()*4).toFixed(1)}%`;
-        f.classList.add('done');
-        setTimeout(() => { f.remove(); resolve(); }, 600);
-      }, 1100);
-    });
+        <div class="tnx-sim-flash-title">Biometric check</div>
+        <div class="tnx-sim-flash-sub">${escapeHtml(subject || 'Demo')} · ${escapeHtml(action || '')}</div>
+        <div class="tnx-sim-flash-bar"><div class="tnx-sim-flash-bar-inner"></div></div>
+        <div class="tnx-sim-flash-hint" id="sim-flash-hint">Capturing live frame…</div>
+      </div>
+    `;
+    document.body.appendChild(f);
+
+    let stream = null;
+    const stop = () => { try { stream?.getTracks().forEach(t => t.stop()); } catch {} stream = null; };
+
+    // Try to start the camera; if it fails or takes too long, just animate
+    try {
+      stream = await Promise.race([
+        navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 320, facingMode: 'user' }, audio: false }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('cam-timeout')), 1500))
+      ]);
+      const v = document.getElementById('sim-flash-video');
+      if (v && stream) {
+        v.srcObject = stream;
+        await new Promise(r => { v.onloadedmetadata = r; setTimeout(r, 800); });
+        await v.play().catch(() => {});
+        const overlay = document.getElementById('sim-flash-cam-msg');
+        if (overlay) overlay.style.display = 'none';
+      }
+    } catch {
+      const overlay = document.getElementById('sim-flash-cam-msg');
+      if (overlay) overlay.textContent = 'Simulated capture (no camera access)';
+    }
+
+    // Brief "scanning" pause
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Take a snapshot if we have a live stream
+    const v = document.getElementById('sim-flash-video');
+    let captured = null;
+    if (v && v.videoWidth) {
+      try {
+        const c = document.createElement('canvas');
+        c.width = 240; c.height = 240;
+        const ctx = c.getContext('2d');
+        ctx.translate(c.width, 0); ctx.scale(-1, 1);
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+        captured = c.toDataURL('image/jpeg', 0.85);
+      } catch {}
+    }
+    stop();
+
+    // Replace video with captured snapshot (or keep video paused on last frame)
+    const vf = document.getElementById('sim-flash-vf');
+    if (vf && captured) {
+      vf.innerHTML = `<img src="${captured}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    }
+
+    // Show success state
+    const titleEl = f.querySelector('.tnx-sim-flash-title');
+    const sub = f.querySelector('.tnx-sim-flash-sub');
+    const hint = document.getElementById('sim-flash-hint');
+    if (titleEl) titleEl.innerHTML = '✓ Signed';
+    if (sub) sub.innerHTML = `Liveness ${(96 + Math.random()*3).toFixed(1)}% · 1:N match ${(95 + Math.random()*4).toFixed(1)}%`;
+    if (hint) hint.textContent = captured ? 'Real capture · synthetic comparison' : 'Simulated capture · synthetic comparison';
+    f.classList.add('done');
+    await new Promise(r => setTimeout(r, 900));
+    f.remove();
   };
   Sim.flashEnroll = Sim.flashSign;
 

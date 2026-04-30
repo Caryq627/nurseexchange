@@ -153,7 +153,7 @@ function renderTopbar() {
   return `
     <div class="topbar-left">
       <button class="mobile-menu-btn" data-action="toggle-sidebar" aria-label="Menu">${icon('menu',20)}</button>
-      <a href="#/" class="topbar-brand">${icon('pool',22)} <span>The Nurse Exchange</span></a>
+      <a href="index.html" class="topbar-brand" title="Back to landing page">${icon('pool',22)} <span>The Nurse Exchange</span></a>
       <div class="topbar-search" style="position:relative">
         ${icon('search',14)}
         <input id="global-search" placeholder="Search nurses, cases, skills…" autocomplete="off" />
