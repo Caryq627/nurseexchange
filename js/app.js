@@ -181,12 +181,15 @@ function renderTopbar() {
 }
 
 function renderFooter() {
+  const v = window.TNX_VERSION || '0.0.0';
+  const build = window.TNX_BUILD || '';
   return `
     <div class="app-footer-inner">
       <span class="cq-secured-badge" title="All actions biometrically signed">
         <span class="cq-dot"></span> Verified · biometric-secured
       </span>
       <span class="app-footer-meta">All actions biometrically signed · LookAway privacy guards active</span>
+      <span class="build-tag" title="Build version">v${v}${build ? ' · ' + build : ''}</span>
     </div>
   `;
 }
