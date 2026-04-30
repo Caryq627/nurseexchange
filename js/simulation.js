@@ -455,15 +455,13 @@
           <p>You'll watch a real placement happen across 4 stakeholders, with every high-stakes action biometrically signed and audit-chained. The camera is skipped (this is a simulation), but every other action is real and persists in the demo.</p>
 
           <div class="tnx-sim-intro-flow">
-            <div class="flow-node"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Platform Admin</div></div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node"><div class="dot" style="background:#2D6CDF">SM</div><div class="lbl">Agency Admin</div></div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node"><div class="dot" style="background:#F59E0B">DC</div><div class="lbl">Parent</div></div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node"><div class="dot" style="background:#16A34A">TJ</div><div class="lbl">Nurse</div></div>
-            <div class="flow-arrow">→</div>
-            <div class="flow-node"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Audit recap</div></div>
+            <div class="flow-row">
+              <div class="flow-step"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Platform admin</div></div>
+              <div class="flow-step"><div class="dot" style="background:#2D6CDF">SM</div><div class="lbl">Agency admin</div></div>
+              <div class="flow-step"><div class="dot" style="background:#F59E0B">DC</div><div class="lbl">Parent</div></div>
+              <div class="flow-step"><div class="dot" style="background:#16A34A">TJ</div><div class="lbl">Nurse</div></div>
+              <div class="flow-step"><div class="dot" style="background:#7C3AED">PA</div><div class="lbl">Audit recap</div></div>
+            </div>
           </div>
 
           <div class="tnx-sim-intro-pillars">
